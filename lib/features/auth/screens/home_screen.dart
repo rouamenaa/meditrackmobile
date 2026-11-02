@@ -4,7 +4,6 @@ import '../models/user.dart';
 import '../repositories/medecin_repository.dart';
 import '../repositories/user_repository.dart';
 import 'profile_screen.dart';
-import '../../medications/screens/medications_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final User user;
@@ -55,19 +54,6 @@ class HomeScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => ProfileScreen(user: user)),
               ),
               child: const Text('Mon profil'),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => MedicationsScreen(user: user)),
-              ),
-              icon: const Icon(Icons.medication_rounded),
-              label: const Text('Mes médicaments'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0B6B5D),
-                foregroundColor: Colors.white,
-              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton(
