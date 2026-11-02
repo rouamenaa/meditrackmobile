@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../repositories/user_repository.dart';
-import '../screens/home_screen.dart';
-import '../screens/login_screen.dart' show kGreen, kNavy, kBackground;
+import '../services/api_service.dart';
+import 'home_screen.dart';
+import 'login_screen.dart' show kGreen, kNavy, kBackground;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -55,30 +56,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
-    final user = await _repo.register(
-      nom: _nomCtrl.text,
-      prenom: _prenomCtrl.text,
-      email: _emailCtrl.text,
-      password: _passwordCtrl.text,
-      telephone: _telCtrl.text.trim().isEmpty ? null : _telCtrl.text.trim(),
-      dateNaissance: _dateCtrl.text.isEmpty ? null : _dateCtrl.text,
-      sexe: _sexe,
-    );
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cet email est déjà utilisé')),
+    try {
+      final user = await _repo.register(
+        nom: _nomCtrl.text,
+        prenom: _prenomCtrl.text,
+        email: _emailCtrl.text,
+        password: _passwordCtrl.text,
+        telephone: _telCtrl.text.trim().isEmpty ? null : _telCtrl.text.trim(),
+        dateNaissance: _dateCtrl.text.isEmpty ? null : _dateCtrl.text,
+        sexe: _sexe,
       );
-      return;
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+            (route) => false,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
     }
-
-    // On remplace toutes les pages précédentes par l'accueil
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
-          (route) => false,
-    );
   }
 
   InputDecoration _decoration(String label, IconData icon, {Widget? suffix}) {
@@ -121,25 +120,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text('Renseignez vos informations pour commencer.',
                     style: TextStyle(color: Colors.grey.shade700)),
                 const SizedBox(height: 22),
-
                 TextFormField(
                   controller: _prenomCtrl,
                   textCapitalization: TextCapitalization.words,
                   decoration: _decoration('Prénom', Icons.person_outline),
-                  validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Prénom obligatoire' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Prénom obligatoire'
+                      : null,
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _nomCtrl,
                   textCapitalization: TextCapitalization.words,
                   decoration: _decoration('Nom', Icons.badge_outlined),
-                  validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Nom obligatoire' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Nom obligatoire'
+                      : null,
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
@@ -147,22 +145,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) {
                     final value = v?.trim() ?? '';
                     if (value.isEmpty) return 'Email obligatoire';
-                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                        .hasMatch(value)) {
                       return 'Email invalide';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _telCtrl,
                   keyboardType: TextInputType.phone,
-                  decoration:
-                  _decoration('Téléphone (optionnel)', Icons.phone_outlined),
+                  decoration: _decoration(
+                      'Téléphone (optionnel)', Icons.phone_outlined),
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _dateCtrl,
                   readOnly: true,
@@ -171,10 +168,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       'Date de naissance (optionnel)', Icons.cake_outlined),
                 ),
                 const SizedBox(height: 14),
-
                 DropdownButtonFormField<String>(
                   value: _sexe,
-                  decoration: _decoration('Sexe (optionnel)', Icons.wc_outlined),
+                  decoration:
+                  _decoration('Sexe (optionnel)', Icons.wc_outlined),
                   items: const [
                     DropdownMenuItem(value: 'Femme', child: Text('Femme')),
                     DropdownMenuItem(value: 'Homme', child: Text('Homme')),
@@ -183,7 +180,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onChanged: (v) => setState(() => _sexe = v),
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _passwordCtrl,
                   obscureText: _hidePassword,
@@ -199,24 +195,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Mot de passe obligatoire';
+                    if (v == null || v.isEmpty) {
+                      return 'Mot de passe obligatoire';
+                    }
                     if (v.length < 6) return 'Minimum 6 caractères';
                     return null;
                   },
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: _confirmCtrl,
                   obscureText: _hidePassword,
-                  decoration:
-                  _decoration('Confirmer le mot de passe', Icons.lock_outline),
+                  decoration: _decoration(
+                      'Confirmer le mot de passe', Icons.lock_outline),
                   validator: (v) => v != _passwordCtrl.text
                       ? 'Les mots de passe ne correspondent pas'
                       : null,
                 ),
                 const SizedBox(height: 24),
-
                 SizedBox(
                   width: double.infinity,
                   height: 52,

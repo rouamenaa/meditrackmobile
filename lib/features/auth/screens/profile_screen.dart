@@ -1,15 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import '../models/medecin.dart';
 import '../models/user.dart';
-import '../repositories/medecin_repository.dart';
 import '../repositories/user_repository.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
 
 const _kCardBg = Color(0xFFEDEFFD);
 const _kFieldBg = Color(0xFFEEF0FC);
 const _kEmergencyBg = Color(0xFFFFE3E0);
 const _kEmergencyText = Color(0xFFB3261E);
+const _kShadow = Color(0x12000000);
 
 const _months = [
   'January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -25,11 +24,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _userRepo = UserRepository();
-  final _medRepo = MedecinRepository();
+  final _repo = UserRepository();
 
   late User _user;
-  List<Medecin> _medecins = [];
   bool _loading = true;
 
   @override
@@ -39,28 +36,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _load();
   }
 
-  // Recharge toujours les données fraîches depuis SQLite
+  // Recharge le profil depuis le serveur (copie locale si hors ligne)
   Future<void> _load() async {
-    final fresh = await _userRepo.getById(widget.user.id!);
-    final meds = await _medRepo.getByUser(widget.user.id!);
+    try {
+      final fresh = await _repo.fetchProfile();
+      if (!mounted) return;
+      setState(() {
+        _user = fresh;
+        _loading = false;
+      });
+    } on ApiException {
+      await _logout(); // session expirée ou compte supprimé
+    }
+  }
+
+  Future<void> _logout() async {
+    await _repo.logout();
     if (!mounted) return;
-    setState(() {
-      if (fresh != null) _user = fresh;
-      _medecins = meds;
-      _loading = false;
-    });
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+    );
   }
 
   void _soon(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$feature : bientôt disponible')),
-    );
-  }
-
-  void _logout() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
     );
   }
 
@@ -106,7 +107,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.of(context).padding.bottom + 24,
+          ),
           children: [
             _buildHeader(u),
             const SizedBox(height: 16),
@@ -123,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ---------------- En-tête : photo, nom, ID, groupe sanguin ----------------
   Widget _buildHeader(User u) {
-    final hasPhoto = u.photoPath != null && File(u.photoPath!).existsSync();
+    final hasPhoto = u.photoUrl != null;
     final health = [
       if (u.groupeSanguin != null && u.groupeSanguin!.isNotEmpty)
         u.groupeSanguin!,
@@ -143,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 radius: 46,
                 backgroundColor: const Color(0xFFD5E7E4),
                 backgroundImage:
-                hasPhoto ? FileImage(File(u.photoPath!)) : null,
+                hasPhoto ? NetworkImage(u.photoUrl!) : null,
                 child: hasPhoto
                     ? null
                     : Text(_initials(u),
@@ -197,7 +204,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (health.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
                   color: const Color(0xFFFFD9D5),
                   borderRadius: BorderRadius.circular(20)),
@@ -236,7 +244,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       icon: Icons.assignment_ind_outlined,
       iconColor: kGreen,
       children: [
-        _Field(label: 'Full Name', icon: Icons.person_outline, value: u.fullName),
+        _Field(
+            label: 'Full Name', icon: Icons.person_outline, value: u.fullName),
         _Field(
           label: 'Email Address',
           icon: Icons.mail_outline,
@@ -319,10 +328,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           iconBg: const Color(0xFFD5E7E4),
           iconColor: kGreen,
           small: 'Primary Care Physicians',
-          lines: _medecins.isEmpty
+          lines: u.medecins.isEmpty
               ? [_Line('Not set', bold: true)]
               : [
-            for (final m in _medecins) ...[
+            for (final m in u.medecins) ...[
               _Line(m.nom, bold: true),
               _Line(m.specialite),
             ]
@@ -404,11 +413,9 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-              color: Colors.black.withOpacity(0.07),
-              blurRadius: 12,
-              offset: const Offset(0, 3)),
+              color: _kShadow, blurRadius: 12, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
