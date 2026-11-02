@@ -46,3 +46,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+
+# Backend Node.js
+meditrack_backend/node_modules/
+meditrack_backend/.env
+meditrack_backend/uploads/
