@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../appointments/screens/appointments_screen.dart';
+import '../../appointments/services/appointment_provider.dart';
 import '../models/medecin.dart';
 import '../models/user.dart';
 import '../repositories/medecin_repository.dart';
@@ -47,8 +50,29 @@ class HomeScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Bonjour ${user.prenom} ${user.nom} 👋',
-                style: const TextStyle(fontSize: 22)),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0B6B5D),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.calendar_month_rounded),
+              label: Consumer<AppointmentProvider>(
+                builder: (context, provider, _) {
+                  final count = provider.upcomingAppointments.length;
+                  return Text(
+                    count > 0 ? 'Mes Rendez-vous ($count)' : 'Mes Rendez-vous',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  );
+                },
+              ),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AppointmentsScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => ProfileScreen(user: user)),

@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'features/appointments/services/appointment_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 
 void main() {
-  runApp(const MediTrackApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AppointmentProvider()..loadAll(),
+        ),
+      ],
+      child: const MediTrackApp(),
+    ),
+  );
 }
 
 class MediTrackApp extends StatelessWidget {
@@ -20,4 +31,4 @@ class MediTrackApp extends StatelessWidget {
       home: const LoginScreen(),
     );
   }
-}
+}
