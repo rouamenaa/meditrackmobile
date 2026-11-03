@@ -9,6 +9,12 @@ router.get('/', c.getUsers);
 router.post('/', c.register);
 router.post('/login', c.login);
 
+// Vérification de compte & mot de passe oublié (publiques)
+router.post('/verify/send', c.sendVerification);
+router.post('/verify/confirm', c.confirmVerification);
+router.post('/forgot-password', c.forgotPassword);
+router.post('/reset-password', c.resetPassword);
+
 // Protégées (token obligatoire)
 router.get('/:id', auth, c.getUser);
 router.put('/:id', auth, c.updateUser);

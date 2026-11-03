@@ -7,6 +7,19 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true }, // haché avec bcrypt
 
+    // Rôle : patient (par défaut) ou médecin
+    role: { type: String, enum: ['patient', 'medecin'], default: 'patient' },
+
+    // Vérification de l'adresse email
+    // Pas de default : les comptes créés avant cette fonctionnalité restent valides.
+    email_verifie: Boolean,
+    verification_code: String,
+    verification_expires: Date,
+
+    // Réinitialisation du mot de passe
+    reset_code: String,
+    reset_expires: Date,
+
     telephone: String,
     date_naissance: String, // "1987-04-14"
     sexe: String,
@@ -50,6 +63,10 @@ userSchema.set('toJSON', {
     delete ret._id;
     delete ret.__v;
     delete ret.password;
+    delete ret.verification_code;
+    delete ret.verification_expires;
+    delete ret.reset_code;
+    delete ret.reset_expires;
     return ret;
   },
 });

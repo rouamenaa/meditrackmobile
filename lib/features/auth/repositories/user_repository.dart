@@ -5,17 +5,31 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/session.dart';
 
+/// Résultat d'une inscription : le compte créé + l'état de l'email de vérification.
+class RegistrationResult {
+  final User user;
+  final bool emailEnvoye;
+  final String? emailError;
+
+  RegistrationResult({
+    required this.user,
+    required this.emailEnvoye,
+    this.emailError,
+  });
+}
+
 class UserRepository {
   final _api = ApiService();
   final _session = Session.instance;
   final _dbHelper = DatabaseHelper.instance;
 
   // ---------- Inscription : POST /users ----------
-  Future<User> register({
+  Future<RegistrationResult> register({
     required String nom,
     required String prenom,
     required String email,
     required String password,
+    String role = 'patient',
     String? telephone,
     String? dateNaissance,
     String? sexe,
@@ -25,12 +39,43 @@ class UserRepository {
       'prenom': prenom.trim(),
       'email': email.trim().toLowerCase(),
       'password': password,
+      'role': role,
       'telephone': telephone,
       'date_naissance': dateNaissance,
       'sexe': sexe,
     });
+    final user = await _startSession(data, remember: true);
+    return RegistrationResult(
+      user: user,
+      emailEnvoye: data['email_envoye'] as bool? ?? true,
+      emailError: data['email_error'] as String?,
+    );
+  }
+
+  // ---------- Vérification de l'email ----------
+  // Renvoie un nouveau code de vérification à l'adresse donnée.
+  Future<void> sendVerificationCode(String email) =>
+      _api.post('/users/verify/send', {'email': email.trim().toLowerCase()});
+
+  // Confirme le compte avec le code reçu. Ouvre la session si succès.
+  Future<User> confirmVerification(String email, String code) async {
+    final data = await _api.post('/users/verify/confirm', {
+      'email': email.trim().toLowerCase(),
+      'code': code.trim(),
+    });
     return _startSession(data, remember: true);
   }
+
+  // ---------- Mot de passe oublié ----------
+  Future<void> forgotPassword(String email) =>
+      _api.post('/users/forgot-password', {'email': email.trim().toLowerCase()});
+
+  Future<void> resetPassword(String email, String code, String newPassword) =>
+      _api.post('/users/reset-password', {
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+        'new_password': newPassword,
+      });
 
   // ---------- Connexion : POST /users/login ----------
   Future<User> login(String email, String password,
@@ -87,6 +132,53 @@ class UserRepository {
   Future<User> _fetch(String id) async {
     final data = await _api.get('/users/$id');
     final user = User.fromJson(Map<String, dynamic>.from(data));
+    await _saveCache(user);
+    return user;
+  }
+
+  // ---------- Modification du profil : PUT /users/:id ----------
+  Future<User> updateProfile({
+    required String nom,
+    required String prenom,
+    String? telephone,
+    String? dateNaissance,
+    String? sexe,
+    String? groupeSanguin,
+    String? conditionMedicale,
+    String? contactUrgenceNom,
+    String? contactUrgenceLien,
+    String? contactUrgenceTel,
+    String? assuranceNom,
+    String? assurancePolice,
+  }) async {
+    final id = _session.user!.id!;
+    final data = await _api.put('/users/$id', {
+      'nom': nom.trim(),
+      'prenom': prenom.trim(),
+      'telephone': telephone,
+      'date_naissance': dateNaissance,
+      'sexe': sexe,
+      'groupe_sanguin': groupeSanguin,
+      'condition_medicale': conditionMedicale,
+      'contact_urgence_nom': contactUrgenceNom,
+      'contact_urgence_lien': contactUrgenceLien,
+      'contact_urgence_tel': contactUrgenceTel,
+      'assurance_nom': assuranceNom,
+      'assurance_police': assurancePolice,
+    });
+    final user = User.fromJson(Map<String, dynamic>.from(data));
+    _session.user = user;
+    await _saveCache(user);
+    return user;
+  }
+
+  // ---------- Photo de profil : POST /users/:id/photo ----------
+  Future<User> uploadPhoto(String filePath) async {
+    final id = _session.user!.id!;
+    final data =
+        await _api.postMultipart('/users/$id/photo', 'image', filePath);
+    final user = User.fromJson(Map<String, dynamic>.from(data));
+    _session.user = user;
     await _saveCache(user);
     return user;
   }

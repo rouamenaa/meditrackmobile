@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import '../repositories/user_repository.dart';
 import '../services/api_service.dart';
+import '../services/session.dart';
+import 'forgot_password_screen.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
+import 'verify_email_screen.dart';
 
 const kGreen = Color(0xFF0B6B5D);
 const kNavy = Color(0xFF0A2540);
@@ -49,17 +53,69 @@ class _LoginScreenState extends State<LoginScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
+      // Compte créé mais email non vérifié : on envoie vers l'écran de vérification
+      if (e.statusCode == 403 &&
+          e.body is Map &&
+          e.body['needs_verification'] == true) {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) =>
+              VerifyEmailScreen(email: _emailCtrl.text.trim().toLowerCase()),
+        ));
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
     }
   }
 
-  void _soon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature : bientôt disponible')),
-    );
+  // Connexion biométrique : nécessite une session déjà enregistrée (Remember me).
+  Future<void> _biometricLogin() async {
+    final auth = LocalAuthentication();
+    try {
+      final supported =
+          (await auth.canCheckBiometrics) || (await auth.isDeviceSupported());
+      if (!supported) {
+        _snack('Biométrie non disponible sur cet appareil');
+        return;
+      }
+
+      final savedId = await Session.instance.loadSavedUserId();
+      if (savedId == null) {
+        _snack('Aucune session enregistrée. Connecte-toi d\'abord avec ton email.');
+        return;
+      }
+
+      final ok = await auth.authenticate(
+        localizedReason: 'Connexion à MediTrack',
+        biometricOnly: false,
+        persistAcrossBackgrounding: true,
+      );
+      if (!ok) {
+        _snack('Authentification annulée');
+        return;
+      }
+
+      setState(() => _loading = true);
+      final user = await UserRepository().restoreSession();
+      if (!mounted) return;
+      if (user == null) {
+        setState(() => _loading = false);
+        _snack('Session expirée, reconnecte-toi avec tes identifiants.');
+        return;
+      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack('Biométrie indisponible : $e');
+    }
   }
+
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   InputDecoration _fieldDecoration(String hint, IconData icon,
       {Widget? suffix}) {
@@ -213,7 +269,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 12.5)),
                     GestureDetector(
-                      onTap: () => _soon('Mot de passe oublié'),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen()),
+                      ),
                       child: const Text('Forgot password?',
                           style: TextStyle(
                               fontSize: 12,
@@ -309,10 +368,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ----- Face ID / Touch ID (branché plus tard) -----
+                // ----- Face ID / Touch ID -----
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => _soon('Connexion biométrique'),
+                  onTap: _loading ? null : _biometricLogin,
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
