@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../physical_activity/screens/activity_list_screen.dart';
 import '../../treatments/screens/treatments_screen.dart';
 import '../models/user.dart';
 import 'profile_screen.dart';
@@ -25,12 +26,20 @@ class HomeScreen extends StatelessWidget {
               child: const Text('Mon profil'),
             ),
             const SizedBox(height: 8),
-            // MODULE 3.3 TRAITEMENTS (nouveau fichier, aucune autre modif)
+            // MODULE 3.3 TRAITEMENTS
             ElevatedButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => TreatmentsScreen(user: user)),
               ),
               child: const Text('Mes traitements'),
+            ),
+            const SizedBox(height: 8),
+            // MODULE ACTIVITÉ PHYSIQUE
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ActivityListScreen()),
+              ),
+              child: const Text('Activité physique'),
             ),
           ],
         ),
