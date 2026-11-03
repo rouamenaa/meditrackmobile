@@ -7,6 +7,8 @@ class User {
   final String nom;
   final String prenom;
   final String email;
+  final String role; // 'patient' ou 'medecin'
+  final bool emailVerifie; // adresse email confirmée
   final String? telephone;
   final String? dateNaissance; // "1987-04-14"
   final String? sexe;
@@ -35,6 +37,8 @@ class User {
     required this.nom,
     required this.prenom,
     required this.email,
+    this.role = 'patient',
+    this.emailVerifie = true,
     this.telephone,
     this.dateNaissance,
     this.sexe,
@@ -58,6 +62,10 @@ class User {
   // ---------- Valeurs calculées (utiles pour tous les modules) ----------
   String get fullName => '$prenom $nom';
 
+  bool get isMedecin => role == 'medecin';
+
+  String get roleLabel => isMedecin ? 'Médecin' : 'Patient';
+
   String get meditrackId {
     final s = id ?? '0000';
     return '#MT-${s.substring(s.length - 4).toUpperCase()}';
@@ -79,6 +87,8 @@ class User {
     nom: j['nom'] as String? ?? '',
     prenom: j['prenom'] as String? ?? '',
     email: j['email'] as String? ?? '',
+    role: j['role'] as String? ?? 'patient',
+    emailVerifie: j['email_verifie'] as bool? ?? true,
     telephone: j['telephone'] as String?,
     dateNaissance: j['date_naissance'] as String?,
     sexe: j['sexe'] as String?,
@@ -107,6 +117,8 @@ class User {
     'nom': nom,
     'prenom': prenom,
     'email': email,
+    'role': role,
+    'email_verifie': emailVerifie,
     'telephone': telephone,
     'date_naissance': dateNaissance,
     'sexe': sexe,

@@ -59,6 +59,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>MediTrack utilise Face ID pour vous connecter rapidement et en toute sécurité.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MediTrack accède à vos photos pour définir votre photo de profil.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

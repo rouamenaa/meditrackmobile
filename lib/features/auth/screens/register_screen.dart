@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../repositories/user_repository.dart';
 import '../services/api_service.dart';
-import 'home_screen.dart';
 import 'login_screen.dart' show kGreen, kNavy, kBackground;
+import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,6 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _repo = UserRepository();
 
   String? _sexe;
+  String _role = 'patient';
   bool _hidePassword = true;
   bool _loading = false;
 
@@ -57,19 +58,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
     try {
-      final user = await _repo.register(
+      final result = await _repo.register(
         nom: _nomCtrl.text,
         prenom: _prenomCtrl.text,
         email: _emailCtrl.text,
         password: _passwordCtrl.text,
+        role: _role,
         telephone: _telCtrl.text.trim().isEmpty ? null : _telCtrl.text.trim(),
         dateNaissance: _dateCtrl.text.isEmpty ? null : _dateCtrl.text,
         sexe: _sexe,
       );
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
-            (route) => false,
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => VerifyEmailScreen(
+            email: result.user.email,
+            warning: result.emailError == null
+                ? null
+                : 'L\'email de vérification n\'a pas pu être envoyé (${result.emailError}). '
+                    'Tu peux réessayer avec « Renvoyer le code ».',
+          ),
+        ),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -120,6 +129,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text('Renseignez vos informations pour commencer.',
                     style: TextStyle(color: Colors.grey.shade700)),
                 const SizedBox(height: 22),
+                const Text('Je suis',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: kNavy)),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'patient',
+                      label: Text('Patient'),
+                      icon: Icon(Icons.personal_injury_outlined),
+                    ),
+                    ButtonSegment(
+                      value: 'medecin',
+                      label: Text('Médecin'),
+                      icon: Icon(Icons.medical_services_outlined),
+                    ),
+                  ],
+                  selected: {_role},
+                  showSelectedIcon: false,
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: kGreen,
+                    selectedForegroundColor: Colors.white,
+                  ),
+                  onSelectionChanged: (s) =>
+                      setState(() => _role = s.first),
+                ),
+                const SizedBox(height: 18),
                 TextFormField(
                   controller: _prenomCtrl,
                   textCapitalization: TextCapitalization.words,
@@ -169,7 +207,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: _sexe,
+                  initialValue: _sexe,
                   decoration:
                   _decoration('Sexe (optionnel)', Icons.wc_outlined),
                   items: const [
