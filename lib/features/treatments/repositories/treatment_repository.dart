@@ -91,7 +91,7 @@ class TreatmentRepository {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS treatments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
         medication_name TEXT NOT NULL,
         medication_dosage TEXT,
         dose TEXT NOT NULL,
@@ -129,7 +129,7 @@ class TreatmentRepository {
   }
 
   /// READ (sécurité) : un traitement de CETTE utilisateur
-  Future<Treatment?> byIdForUser(int id, int userId) async {
+  Future<Treatment?> byIdForUser(int id, String userId) async {
     final db = await _db;
     final rows = await db.query('treatments',
         where: 'id = ? AND user_id = ?', whereArgs: [id, userId], limit: 1);
@@ -138,7 +138,7 @@ class TreatmentRepository {
 
   /// Résumé frais d'UN traitement (compteurs + prochaine prise)
   /// -> utilisé après une modification pour rafraîchir l'écran historique.
-  Future<TreatmentSummary?> summaryFor(int id, int userId) async {
+  Future<TreatmentSummary?> summaryFor(int id, String userId) async {
     final db = await _db;
     final rows = await db.rawQuery('''
       SELECT t.*,
@@ -266,7 +266,7 @@ class TreatmentRepository {
   /// Un seul aller-retour SQL -> liste + adhérence.
   /// Passe aussi automatiquement les traitements "active"
   /// dont la date de fin est passée en "completed".
-  Future<TreatmentOverview> overview(int userId) async {
+  Future<TreatmentOverview> overview(String userId) async {
     final db = await _db;
     await _autoComplete();
 
@@ -340,7 +340,7 @@ class TreatmentRepository {
   /// Doses à venir (fenêtre [hours] heures) pour programmer les
   /// notifications locales. Seuls les traitements encore actifs/planned
   /// et les prises "pending" sont pris en compte.
-  Future<List<UpcomingDose>> upcomingDoses(int userId,
+  Future<List<UpcomingDose>> upcomingDoses(String userId,
       {int hours = 48}) async {
     final db = await _db;
     final now = _now();

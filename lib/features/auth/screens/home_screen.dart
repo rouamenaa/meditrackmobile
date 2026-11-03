@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../treatments/screens/treatments_screen.dart';
-import '../models/medecin.dart';
 import '../models/user.dart';
 import 'profile_screen.dart';
 
@@ -24,11 +23,6 @@ class HomeScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => ProfileScreen(user: user)),
               ),
               child: const Text('Mon profil'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: () => _fillTestData(context),
-              child: const Text('Remplir des données de test'),
             ),
             const SizedBox(height: 8),
             // MODULE 3.3 TRAITEMENTS (nouveau fichier, aucune autre modif)
