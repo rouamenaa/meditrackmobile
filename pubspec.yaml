@@ -35,12 +35,16 @@ dependencies:
   crypto: ^3.0.3         # hachage du mot de passe
   shared_preferences: ^2.2.3  # session
   provider: ^6.1.2       # gestion d'état
-
+  http: ^1.6.0
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flutter_local_notifications: ^22.3.3
   timezone: ^0.11.2
+  image_picker: ^1.2.4
+  pdf: ^3.13.1
+  printing: ^5.15.1
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:

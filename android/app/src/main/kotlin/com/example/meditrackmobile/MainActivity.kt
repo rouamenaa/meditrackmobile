@@ -1,5 +1,6 @@
 package com.example.meditrackmobile
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity est requis par le plugin local_auth (biométrie).
+class MainActivity : FlutterFragmentActivity()
