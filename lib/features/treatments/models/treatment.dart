@@ -60,7 +60,7 @@ class IntakeLog {
 // ---------- Treatment : le protocole ----------
 class Treatment {
   final int? id;
-  final int userId; // FK -> users(id)
+  final String userId; // ObjectId MongoDB (les comptes sont côté serveur)
   final String medicationName; // nom du médicament (module 3.2 pas encore mergé)
   final String? medicationDosage; // ex : "500 mg capsule"
   final String dose; // ex : "1 comprimé"
@@ -130,7 +130,7 @@ class Treatment {
 
   factory Treatment.fromMap(Map<String, dynamic> m) => Treatment(
         id: m['id'] as int?,
-        userId: m['user_id'] as int,
+        userId: m['user_id'].toString(),
         medicationName: m['medication_name'] as String,
         medicationDosage: m['medication_dosage'] as String?,
         dose: m['dose'] as String,

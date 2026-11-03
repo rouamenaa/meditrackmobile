@@ -42,7 +42,7 @@ const List<String> _kDoseUnits = [
 ];
 
 class TreatmentFormScreen extends StatefulWidget {
-  final int userId;
+  final String userId;
   final Treatment? treatment; // null = AJOUT, sinon = MODIFICATION
   const TreatmentFormScreen({super.key, required this.userId, this.treatment});
 

@@ -132,7 +132,7 @@ class MedicationReminderService {
   /// (Re)programme les rappels des 48 prochaines heures.
   /// Fire-and-forget : on l'appelle depuis initState et après chaque
   /// mutation sans bloquer l'UI.
-  Future<void> refresh(int userId) async {
+  Future<void> refresh(String userId) async {
     try {
       await init();
       // On repart de zéro : plus simple que tenir un registre des ids
