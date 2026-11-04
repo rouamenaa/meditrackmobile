@@ -20,7 +20,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'meditrack.db');
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -30,20 +30,10 @@ class DatabaseHelper {
         await _createAppointmentsModule(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 3) {
-          // v1/v2 : les comptes étaient locaux, ils sont maintenant sur le serveur
-          await db.execute('DROP TABLE IF EXISTS medecins');
-          await db.execute('DROP TABLE IF EXISTS users');
-          await _createUserCache(db);
-        }
-        if (oldVersion < 5) {
-          // Recrée la table physical_activities pour supprimer l'ancienne contrainte FK vers `users`
-          await db.execute('DROP TABLE IF EXISTS physical_activities');
-          await _createPhysicalActivities(db);
-        }
-        if (oldVersion < 6) {
-          await _createAppointmentsModule(db);
-        }
+        // Crée toujours les tables si elles n'existent pas encore
+        await _createUserCache(db);
+        await _createPhysicalActivities(db);
+        await _createAppointmentsModule(db);
       },
     );
   }
