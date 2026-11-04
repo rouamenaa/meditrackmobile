@@ -1,27 +1,16 @@
 class Medecin {
-  final int? id;
-  final int userId;
+  final String? id;
   final String nom;
   final String specialite;
 
-  Medecin({
-    this.id,
-    required this.userId,
-    required this.nom,
-    required this.specialite,
-  });
+  Medecin({this.id, required this.nom, required this.specialite});
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'user_id': userId,
-    'nom': nom,
-    'specialite': specialite,
-  };
-
-  factory Medecin.fromMap(Map<String, dynamic> m) => Medecin(
-    id: m['id'] as int?,
-    userId: m['user_id'] as int,
-    nom: m['nom'] as String,
-    specialite: m['specialite'] as String,
+  factory Medecin.fromJson(Map<String, dynamic> j) => Medecin(
+    id: j['id'] as String?,
+    nom: j['nom'] as String? ?? '',
+    specialite: j['specialite'] as String? ?? '',
   );
+
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'nom': nom, 'specialite': specialite};
 }
