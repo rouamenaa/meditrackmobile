@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import '../repositories/user_repository.dart';
+import '../services/api_service.dart';
+import '../services/session.dart';
+import 'forgot_password_screen.dart';
 import 'home_screen.dart';
-import '../screens/register_screen.dart';
+import 'register_screen.dart';
+import 'verify_email_screen.dart';
+
 const kGreen = Color(0xFF0B6B5D);
 const kNavy = Color(0xFF0A2540);
 const kBackground = Color(0xFFF8F7FF);
@@ -34,29 +40,85 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
-    final user = await _repo.login(_emailCtrl.text, _passwordCtrl.text);
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email ou mot de passe incorrect')),
+    try {
+      final user = await _repo.login(
+        _emailCtrl.text,
+        _passwordCtrl.text,
+        remember: _rememberMe,
       );
-      return;
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      // Compte créé mais email non vérifié : on envoie vers l'écran de vérification
+      if (e.statusCode == 403 &&
+          e.body is Map &&
+          e.body['needs_verification'] == true) {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) =>
+              VerifyEmailScreen(email: _emailCtrl.text.trim().toLowerCase()),
+        ));
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
     }
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
-    );
   }
 
-  void _soon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature : bientôt disponible')),
-    );
+  // Connexion biométrique : nécessite une session déjà enregistrée (Remember me).
+  Future<void> _biometricLogin() async {
+    final auth = LocalAuthentication();
+    try {
+      final supported =
+          (await auth.canCheckBiometrics) || (await auth.isDeviceSupported());
+      if (!supported) {
+        _snack('Biométrie non disponible sur cet appareil');
+        return;
+      }
+
+      final savedId = await Session.instance.loadSavedUserId();
+      if (savedId == null) {
+        _snack('Aucune session enregistrée. Connecte-toi d\'abord avec ton email.');
+        return;
+      }
+
+      final ok = await auth.authenticate(
+        localizedReason: 'Connexion à MediTrack',
+        biometricOnly: false,
+        persistAcrossBackgrounding: true,
+      );
+      if (!ok) {
+        _snack('Authentification annulée');
+        return;
+      }
+
+      setState(() => _loading = true);
+      final user = await UserRepository().restoreSession();
+      if (!mounted) return;
+      if (user == null) {
+        setState(() => _loading = false);
+        _snack('Session expirée, reconnecte-toi avec tes identifiants.');
+        return;
+      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack('Biométrie indisponible : $e');
+    }
   }
 
-  InputDecoration _fieldDecoration(String hint, IconData icon, {Widget? suffix}) {
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  InputDecoration _fieldDecoration(String hint, IconData icon,
+      {Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
       prefixIcon: Icon(icon, color: Colors.grey.shade600),
@@ -147,7 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 46,
                         decoration: const BoxDecoration(
                             color: Color(0xFFD5E7E4), shape: BoxShape.circle),
-                        child: const Icon(Icons.vaccines_outlined, color: kGreen),
+                        child:
+                        const Icon(Icons.vaccines_outlined, color: kGreen),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
@@ -157,7 +220,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text('Welcome back!',
                                 style: TextStyle(
                                     fontWeight: FontWeight.w700, fontSize: 15)),
-                            Text('Stay on track with today\'s dosages and vitals.',
+                            Text(
+                                'Stay on track with today\'s dosages and vitals.',
                                 style: TextStyle(fontSize: 12.5)),
                           ],
                         ),
@@ -188,7 +252,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (v) {
                     final value = v?.trim() ?? '';
                     if (value.isEmpty) return 'Email obligatoire';
-                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                        .hasMatch(value)) {
                       return 'Email invalide';
                     }
                     return null;
@@ -204,7 +269,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 12.5)),
                     GestureDetector(
-                      onTap: () => _soon('Mot de passe oublié'),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen()),
+                      ),
                       child: const Text('Forgot password?',
                           style: TextStyle(
                               fontSize: 12,
@@ -240,7 +308,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     Checkbox(
                       value: _rememberMe,
                       activeColor: kGreen,
-                      onChanged: (v) => setState(() => _rememberMe = v ?? false),
+                      onChanged: (v) =>
+                          setState(() => _rememberMe = v ?? false),
                     ),
                     const Text('Remember this device for 30 days',
                         style: TextStyle(
@@ -299,10 +368,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ----- Face ID / Touch ID (branché à l'étape 9) -----
+                // ----- Face ID / Touch ID -----
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => _soon('Connexion biométrique'),
+                  onTap: _loading ? null : _biometricLogin,
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -341,12 +410,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ----- Créer un compte (étape 5) -----
+                // ----- Créer un compte -----
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                    ),                    child: const Text("Don't have an account? Sign up",
+                      MaterialPageRoute(
+                          builder: (_) => const RegisterScreen()),
+                    ),
+                    child: const Text("Don't have an account? Sign up",
                         style: TextStyle(
                             color: kGreen, fontWeight: FontWeight.w700)),
                   ),

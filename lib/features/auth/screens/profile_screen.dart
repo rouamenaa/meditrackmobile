@@ -1,15 +1,17 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import '../models/medecin.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:meditrackmobile/features/profile/services/medical_report_service.dart';
 import '../models/user.dart';
-import '../repositories/medecin_repository.dart';
 import '../repositories/user_repository.dart';
+import '../services/api_service.dart';
+import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 
 const _kCardBg = Color(0xFFEDEFFD);
 const _kFieldBg = Color(0xFFEEF0FC);
 const _kEmergencyBg = Color(0xFFFFE3E0);
 const _kEmergencyText = Color(0xFFB3261E);
+const _kShadow = Color(0x12000000);
 
 const _months = [
   'January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -25,12 +27,11 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _userRepo = UserRepository();
-  final _medRepo = MedecinRepository();
+  final _repo = UserRepository();
 
   late User _user;
-  List<Medecin> _medecins = [];
   bool _loading = true;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -39,29 +40,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _load();
   }
 
-  // Recharge toujours les données fraîches depuis SQLite
+  // Recharge le profil depuis le serveur (copie locale si hors ligne)
   Future<void> _load() async {
-    final fresh = await _userRepo.getById(widget.user.id!);
-    final meds = await _medRepo.getByUser(widget.user.id!);
+    try {
+      final fresh = await _repo.fetchProfile();
+      if (!mounted) return;
+      setState(() {
+        _user = fresh;
+        _loading = false;
+      });
+    } on ApiException {
+      await _logout(); // session expirée ou compte supprimé
+    }
+  }
+
+  Future<void> _logout() async {
+    await _repo.logout();
     if (!mounted) return;
-    setState(() {
-      if (fresh != null) _user = fresh;
-      _medecins = meds;
-      _loading = false;
-    });
-  }
-
-  void _soon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature : bientôt disponible')),
-    );
-  }
-
-  void _logout() {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
           (route) => false,
     );
+  }
+
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  // Change la photo de profil : sélection dans la galerie puis upload serveur.
+  Future<void> _changePhoto() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final updated = await _repo.uploadPhoto(picked.path);
+      if (!mounted) return;
+      setState(() {
+        _user = updated;
+        _uploadingPhoto = false;
+      });
+      _snack('Photo mise à jour');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingPhoto = false);
+      _snack(e.message);
+    }
+  }
+
+  // Édition du profil : renvoie l'utilisateur mis à jour.
+  Future<void> _editProfile() async {
+    final updated = await Navigator.of(context).push<User>(
+      MaterialPageRoute(builder: (_) => EditProfileScreen(user: _user)),
+    );
+    if (updated != null && mounted) {
+      setState(() => _user = updated);
+    }
+  }
+
+  // Export PDF du dossier médical.
+  Future<void> _exportPdf() async {
+    try {
+      await MedicalReportService.exportPdf(_user);
+    } catch (e) {
+      if (!mounted) return;
+      _snack('Export impossible : $e');
+    }
   }
 
   String _formatDate(User u) {
@@ -106,7 +154,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.of(context).padding.bottom + 24,
+          ),
           children: [
             _buildHeader(u),
             const SizedBox(height: 16),
@@ -123,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ---------------- En-tête : photo, nom, ID, groupe sanguin ----------------
   Widget _buildHeader(User u) {
-    final hasPhoto = u.photoPath != null && File(u.photoPath!).existsSync();
+    final hasPhoto = u.photoUrl != null;
     final health = [
       if (u.groupeSanguin != null && u.groupeSanguin!.isNotEmpty)
         u.groupeSanguin!,
@@ -143,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 radius: 46,
                 backgroundColor: const Color(0xFFD5E7E4),
                 backgroundImage:
-                hasPhoto ? FileImage(File(u.photoPath!)) : null,
+                hasPhoto ? NetworkImage(u.photoUrl!) : null,
                 child: hasPhoto
                     ? null
                     : Text(_initials(u),
@@ -156,15 +210,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 right: 0,
                 bottom: 0,
                 child: GestureDetector(
-                  onTap: () => _soon('Changer la photo'),
+                  onTap: _uploadingPhoto ? null : _changePhoto,
                   child: Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
                         color: kGreen,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2)),
-                    child: const Icon(Icons.photo_camera,
-                        size: 16, color: Colors.white),
+                    child: _uploadingPhoto
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.photo_camera,
+                            size: 16, color: Colors.white),
                   ),
                 ),
               ),
@@ -175,29 +235,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: const TextStyle(
                   fontSize: 24, fontWeight: FontWeight.w800, color: kNavy)),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-                color: const Color(0xFFD9E3F5),
-                borderRadius: BorderRadius.circular(20)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.verified_user_outlined,
-                    size: 15, color: Color(0xFF3B4A6B)),
-                const SizedBox(width: 6),
-                Text('MediTrack ID: ${u.meditrackId}',
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF3B4A6B))),
-              ],
-            ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              // Rôle de l'utilisateur
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                    color: u.isMedecin
+                        ? const Color(0xFFD5E7E4)
+                        : const Color(0xFFE6E9FB),
+                    borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                        u.isMedecin
+                            ? Icons.medical_services_outlined
+                            : Icons.personal_injury_outlined,
+                        size: 15,
+                        color: kGreen),
+                    const SizedBox(width: 6),
+                    Text(u.roleLabel,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: kGreen)),
+                  ],
+                ),
+              ),
+              // Identifiant MediTrack
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFD9E3F5),
+                    borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.verified_user_outlined,
+                        size: 15, color: Color(0xFF3B4A6B)),
+                    const SizedBox(width: 6),
+                    Text('MediTrack ID: ${u.meditrackId}',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF3B4A6B))),
+                  ],
+                ),
+              ),
+            ],
           ),
           if (health.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
                   color: const Color(0xFFFFD9D5),
                   borderRadius: BorderRadius.circular(20)),
@@ -236,7 +333,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       icon: Icons.assignment_ind_outlined,
       iconColor: kGreen,
       children: [
-        _Field(label: 'Full Name', icon: Icons.person_outline, value: u.fullName),
+        _Field(
+            label: 'Full Name', icon: Icons.person_outline, value: u.fullName),
         _Field(
           label: 'Email Address',
           icon: Icons.mail_outline,
@@ -319,10 +417,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           iconBg: const Color(0xFFD5E7E4),
           iconColor: kGreen,
           small: 'Primary Care Physicians',
-          lines: _medecins.isEmpty
+          lines: u.medecins.isEmpty
               ? [_Line('Not set', bold: true)]
               : [
-            for (final m in _medecins) ...[
+            for (final m in u.medecins) ...[
               _Line(m.nom, bold: true),
               _Line(m.specialite),
             ]
@@ -340,7 +438,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton.icon(
-            onPressed: () => _soon('Edit Profile'),
+            onPressed: _editProfile,
             icon: const Icon(Icons.edit_outlined, size: 18),
             label: const Text('Edit Profile',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
@@ -357,7 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           width: double.infinity,
           height: 48,
           child: ElevatedButton.icon(
-            onPressed: () => _soon('Export PDF'),
+            onPressed: _exportPdf,
             icon: const Icon(Icons.description_outlined, size: 18),
             label: const Text('Medical Records & Export PDF',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
@@ -404,11 +502,9 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-              color: Colors.black.withOpacity(0.07),
-              blurRadius: 12,
-              offset: const Offset(0, 3)),
+              color: _kShadow, blurRadius: 12, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
