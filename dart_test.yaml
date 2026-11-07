@@ -1,3 +1,0 @@
-# Configuration de `flutter test` / `dart test`.
-# Affiche le nom de chaque test au lieu du seul compteur final.
-reporter: expanded
