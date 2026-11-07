@@ -87,6 +87,52 @@ void main() {
   });
 
   group('Appointment Model Tests', () {
+    test('fromMap applies defaults for missing optional columns', () {
+      // Ligne SQLite minimale : seules les colonnes NOT NULL sont présentes.
+      final appointment = Appointment.fromMap({
+        'practitioner_id': 7,
+        'start_date_time': '2026-11-20T09:00:00.000',
+        'reason': 'Suivi annuel',
+      });
+
+      expect(appointment.id, isNull);
+      expect(appointment.facilityId, isNull);
+      expect(appointment.notes, isNull);
+      expect(appointment.videoUrl, isNull);
+      expect(appointment.durationMinutes, 30); // valeur par défaut
+      expect(appointment.modality, 'presentiel'); // valeur par défaut
+      expect(appointment.status, AppointmentStatus.SCHEDULED);
+      expect(appointment.endDateTime, DateTime(2026, 11, 20, 9, 30));
+    });
+
+    test('copyWith only changes the targeted fields', () {
+      final original = Appointment(
+        id: 5,
+        practitionerId: 1,
+        startDateTime: DateTime(2026, 12, 1, 10, 0),
+        durationMinutes: 20,
+        reason: 'Bilan',
+        notes: 'À jeun',
+        modality: 'presentiel',
+        status: AppointmentStatus.CONFIRMED,
+      );
+
+      final updated = original.copyWith(
+        status: AppointmentStatus.COMPLETED,
+        durationMinutes: 45,
+      );
+
+      expect(updated.id, 5);
+      expect(updated.reason, 'Bilan');
+      expect(updated.notes, 'À jeun');
+      expect(updated.startDateTime, original.startDateTime);
+      expect(updated.status, AppointmentStatus.COMPLETED);
+      expect(updated.durationMinutes, 45);
+      // L'original ne doit pas être muté.
+      expect(original.status, AppointmentStatus.CONFIRMED);
+      expect(original.durationMinutes, 20);
+    });
+
     test('Serialization toMap and fromMap with joins', () {
       final practitioner = Practitioner(
         id: 2,
