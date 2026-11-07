@@ -78,12 +78,7 @@ meditrackmobile/
 │   ├── routes/ controllers/ models/ middleware/ config/
 │   └── .env                          # secrets locaux (non versionné)
 ├── tool/                             # générateur de la spécification HTML du projet
-├── test/                             # tests (modèles, widget, intégration)
-│   ├── appointments_test.dart
-│   └── features/
-│       ├── appointments/appointment_card_test.dart
-│       └── physical_activity/physical_activity_test.dart
-├── dart_test.yaml                    # reporter `expanded` pour `flutter test`
+├── test/                             # tests (rendez-vous, activité, widget)
 └── assets/                           # icônes / images
 ```
 
@@ -261,59 +256,20 @@ privées `_P` pour la palette et `_T` pour la typographie).
 ## Tests et qualité
 
 ```bash
-flutter analyze                  # analyse statique (lib + test)
+flutter analyze
 
-flutter test test/appointments_test.dart   # modèles rendez-vous (9 tests)
-flutter test test/features                 # activité physique (3) + widget (5) = 8 tests
+# Tests des modules (traitements + activité physique)
+flutter test test/appointments_test.dart
+flutter test test/features
 ```
 
-### Lire la sortie des tests
+Par défaut, `flutter test` n'affiche que `+N: All tests passed!`. Le fichier `dart_test.yaml`
+à la racine force le reporter `expanded` : le nom de chaque test s'affiche. On peut aussi le
+demander ponctuellement :
 
-Le fichier `dart_test.yaml` force le reporter `expanded`, donc chaque test s'affiche :
-
-```text
-00:00 +0: AppointmentStatus Enum Tests French labels should match expected values
-00:00 +1: AppointmentStatus Enum Tests fromString should handle casing and fallback safely
-00:00 +2: Practitioner Model Tests Serialization toMap and fromMap
-...
-00:00 +9: All tests passed!
+```bash
+flutter test --reporter expanded test/features/treatments/treatment_test.dart
 ```
-
-- `+9` = nombre de tests **réussis** ; un `-1` indiquerait un test **échoué** et le détail
-  (assertion, fichier, ligne) serait affiché juste avant.
-- La ligne finale ne montre que le total : c'est normal, les lignes du dessus listent le détail.
-- Pour ne lancer qu'un test : `flutter test test/appointments_test.dart --plain-name "copyWith"`.
-- Pour forcer le détail sans le fichier de config : `flutter test --reporter expanded`.
-
-### Ce que les tests vérifient réellement
-
-**Modèles (`test/appointments_test.dart`)** — 9 tests :
-
-- sérialisation SQLite `toMap()` / `fromMap()` (dont les jointures praticien / lieu) ;
-- valeurs par défaut d'une ligne incomplète (`duration_minutes` → 30, `modality` → `presentiel`, `status` → `SCHEDULED`) ;
-- `copyWith()` sans mutation de l'objet d'origine ;
-- libellés français et repli sûr de `AppointmentStatus.fromString()` ;
-- adresse complète d'un lieu (`HealthFacility.fullAddress`) ;
-- détection de téléconsultation (`isTeleconsultation`, `videoUrl`).
-
-**Widget `AppointmentCard` (`test/features/appointments/appointment_card_test.dart`)** — 5 tests :
-
-- affichage de la date, de la durée, du motif, du praticien, du lieu et du statut ;
-- badge et lien visio pour une téléconsultation ;
-- tap sur la carte → callback d'ouverture ;
-- suppression **avec confirmation** (annuler ne supprime rien, confirmer appelle le callback) ;
-- menu de statut → callback avec le statut choisi.
-
-**Modèle `PhysicalActivity` (`test/features/physical_activity/physical_activity_test.dart`)** — 3 tests :
-aller-retour `toMap()`/`fromMap()`, champs facultatifs nuls, `copyWith()` ciblé.
-
-### Limites connues
-
-Ces tests ne couvrent pas : les écrans complets (navigation de bout en bout), la base SQLite
-réelle (`sqflite` n'est pas initialisé dans les tests), les appels HTTP au backend, ni la logique
-métier de `AppointmentProvider.upcomingAppointments` (le provider est lié directement à
-`DatabaseHelper`, sans injection possible en test). La vérification de ces parcours se fait
-manuellement sur appareil.
 
 > `test/widget_test.dart` est le test « compteur » généré par `flutter create` : il correspond à
 > l'ancien template et échoue logiquement (l'application n'affiche plus de compteur). Il peut être

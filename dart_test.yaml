@@ -1,6 +1,3 @@
-# Configuration des tests (package:test / flutter test).
-#
-# Par défaut, `flutter test` n'affiche qu'une ligne finale du type
-# `00:01 +9: All tests passed!` quand tout réussit, ce qui ne montre pas
-# quel test a été exécuté. Le reporter `expanded` affiche chaque test.
+# Configuration de `flutter test` / `dart test`.
+# Affiche le nom de chaque test au lieu du seul compteur final.
 reporter: expanded
