@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/meditrackmobile.iml" filepath="$PROJECT_DIR$/.idea/meditrackmobile.iml" />
+      <module fileurl="file://$PROJECT_DIR$/android/meditrackmobile_android.iml" filepath="$PROJECT_DIR$/android/meditrackmobile_android.iml" />
     </modules>
   </component>
 </project>
