@@ -170,12 +170,7 @@ class AppointmentCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  s.labelFr,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                              Text(s.labelFr),
                             ],
                           ),
                         ),
