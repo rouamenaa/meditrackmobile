@@ -19,7 +19,7 @@ const _kBg = Color(0xFFF4F8F7);
 const _kMuted = Color(0xFF6B7280);
 
 class MedicationFormScreen extends StatefulWidget {
-  final int userId;
+  final String userId;
   final Medication? medication; // null = création
 
   const MedicationFormScreen({

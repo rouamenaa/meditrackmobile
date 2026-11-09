@@ -40,7 +40,7 @@ MedicationForm medicationFormFromString(String s) =>
 
 class Medication {
   final int? id;
-  final int userId; // FK -> users(id)
+  final String userId; // FK -> users(id)
 
   final String name; // ex : "Doliprane"
   final String? dosage; // ex : "500 mg"
@@ -119,7 +119,7 @@ class Medication {
 
   factory Medication.fromMap(Map<String, dynamic> m) => Medication(
         id: m['id'] as int?,
-        userId: m['user_id'] as int,
+        userId: m['user_id'] as String,
         name: m['name'] as String,
         dosage: m['dosage'] as String?,
         form: medicationFormFromString(m['form'] as String? ?? 'comprime'),

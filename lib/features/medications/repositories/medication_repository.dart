@@ -35,7 +35,7 @@ class MedicationRepository {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS medications (
         id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id              INTEGER NOT NULL,
+        user_id              TEXT    NOT NULL,
         name                 TEXT    NOT NULL,
         dosage               TEXT,
         form                 TEXT    NOT NULL DEFAULT 'comprime',
@@ -45,8 +45,7 @@ class MedicationRepository {
         stock_alert_threshold INTEGER,
         expiry_date          TEXT,
         barcode              TEXT,
-        created_at           TEXT    NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at           TEXT    NOT NULL
       )
     ''');
     return db;
@@ -63,7 +62,7 @@ class MedicationRepository {
 
   // ================= READ =================
 
-  Future<Medication?> byIdForUser(int id, int userId) async {
+  Future<Medication?> byIdForUser(int id, String userId) async {
     final db = await _db;
     final rows = await db.query(
       'medications',
@@ -75,7 +74,7 @@ class MedicationRepository {
   }
 
   /// Tous les médicaments d'un utilisateur, triés par nom
-  Future<List<Medication>> allForUser(int userId) async {
+  Future<List<Medication>> allForUser(String userId) async {
     final db = await _db;
     final rows = await db.query(
       'medications',
@@ -87,7 +86,7 @@ class MedicationRepository {
   }
 
   /// Recherche par nom (insensible à la casse, recherche partielle)
-  Future<List<Medication>> search(int userId, String query) async {
+  Future<List<Medication>> search(String userId, String query) async {
     if (query.trim().isEmpty) return allForUser(userId);
     final db = await _db;
     final rows = await db.query(
@@ -100,7 +99,7 @@ class MedicationRepository {
   }
 
   /// Médicaments dont le stock est en alerte (stock <= seuil)
-  Future<List<Medication>> lowStock(int userId) async {
+  Future<List<Medication>> lowStock(String userId) async {
     final db = await _db;
     final rows = await db.rawQuery('''
       SELECT * FROM medications
@@ -114,7 +113,7 @@ class MedicationRepository {
   }
 
   /// Médicaments qui expirent dans les 30 prochains jours (ou déjà expirés)
-  Future<List<Medication>> expiringSoon(int userId) async {
+  Future<List<Medication>> expiringSoon(String userId) async {
     final db = await _db;
     final soon = DateTime.now().add(const Duration(days: 30));
     final soonStr =
@@ -143,7 +142,7 @@ class MedicationRepository {
 
   /// Décrémenter le stock d'une unité (ex : lors d'une prise)
   /// Retourne false si stock déjà à 0 ou non suivi.
-  Future<bool> decrementStock(int id, int userId) async {
+  Future<bool> decrementStock(int id, String userId) async {
     final db = await _db;
     final med = await byIdForUser(id, userId);
     if (med == null || med.stockQuantity == null || med.stockQuantity! <= 0) {
@@ -159,7 +158,7 @@ class MedicationRepository {
   }
 
   /// Incrémenter le stock (ex : renouvellement d'ordonnance)
-  Future<void> incrementStock(int id, int userId, int amount) async {
+  Future<void> incrementStock(int id, String userId, int amount) async {
     final db = await _db;
     final med = await byIdForUser(id, userId);
     if (med == null || med.stockQuantity == null) return;
@@ -173,7 +172,7 @@ class MedicationRepository {
 
   // ================= DELETE =================
 
-  Future<int> delete(int id, int userId) async {
+  Future<int> delete(int id, String userId) async {
     final db = await _db;
     return db.delete(
       'medications',
