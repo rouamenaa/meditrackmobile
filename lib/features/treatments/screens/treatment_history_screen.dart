@@ -181,7 +181,29 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF0B6B5D)));
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erreur : ${snapshot.error}'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: Color(0xFF6B7280), size: 36),
+                    const SizedBox(height: 10),
+                    Text('Erreur : ${snapshot.error}',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _reload,
+                      style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF0B6B5D)),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
           final logs = snapshot.data!;
           if (logs.isEmpty) {

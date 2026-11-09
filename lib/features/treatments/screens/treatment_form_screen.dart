@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../models/treatment.dart';
 import '../repositories/treatment_repository.dart';
+import '../services/drug_info_service.dart';
 
 /// Formes du médicament (énum `MedicationForm` du doc §5)
 const List<(String, IconData)> _kForms = [
@@ -55,6 +56,10 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
 
   // ---------- champs texte (validate() + save(), comme en cours)
   String _medName = '';
+  final _medNameCtrl = TextEditingController();
+  bool _drugLookupLoading = false;
+  DrugInfo? _drugInfo;
+  String? _drugLookupMsg;
 
   // ---------- forme / dosage / dose (choisis via bottom-sheets)
   String? _selectedForm; // ex : "Comprimé"
@@ -85,6 +90,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     super.initState();
     final t = widget.treatment;
     if (t != null) {
+      _medNameCtrl.text = t.medicationName;
       _start = t.startDate;
       _startCtl.text = _fmtDate(t.startDate);
       if (t.endDate != null) {
@@ -112,11 +118,12 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   /// Pré-remplit forme + dosage + dose à partir des chaînes stockées
   void _prefillMedication(Treatment t) {
     // dosage "500 mg" ?
-    final mDosage =
-        RegExp(r'^\s*(\d+(?:[.,]\d+)?)\s*([a-zA-Zé]+)\s*$').firstMatch(t.medicationDosage ?? '');
+    final mDosage = RegExp(r'^\s*(\d+(?:[.,]\d+)?)\s*([a-zA-Zé]+)\s*$')
+        .firstMatch(t.medicationDosage ?? '');
     if (mDosage != null) {
       _dosage = t.medicationDosage;
-      _dosageNum = double.tryParse(mDosage.group(1)!.replaceAll(',', '.')) ?? 500;
+      _dosageNum =
+          double.tryParse(mDosage.group(1)!.replaceAll(',', '.')) ?? 500;
       final u = mDosage.group(2)!.toLowerCase();
       _dosageUnit = _kDosageUnits.contains(u) ? u : 'mg';
     } else if ((t.medicationDosage ?? '').trim().isEmpty) {
@@ -128,8 +135,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
       _dose = t.dose;
       _doseQty = int.tryParse(mDose.group(1)!) ?? 1;
       final u = mDose.group(2)!.toLowerCase();
-      _doseUnit = _kDoseUnits.firstWhere((e) => e.contains(u),
-          orElse: () => 'dose(s)');
+      _doseUnit =
+          _kDoseUnits.firstWhere((e) => e.contains(u), orElse: () => 'dose(s)');
     } else {
       _dose = t.dose; // ex : "1" -> qty=1, unité par défaut
       _doseQty = 1;
@@ -140,6 +147,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
 
   @override
   void dispose() {
+    _medNameCtrl.dispose();
     _startCtl.dispose();
     _endCtl.dispose();
     _formCtrl.dispose();
@@ -168,7 +176,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   String? _required(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Champ requis' : null;
 
-  String? _validateStart(String? v) => _start == null ? 'Choisissez une date' : null;
+  String? _validateStart(String? v) =>
+      _start == null ? 'Choisissez une date' : null;
 
   // ---------- sélecteur : dates et horaires ----------
 
@@ -208,8 +217,13 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
       confirmText: 'Valider',
     );
     if (t == null || !mounted) return;
+    final time = _fmtTimeOfDay(t);
+    if (_times.contains(time)) {
+      _snack('Cet horaire est déjà ajouté.');
+      return;
+    }
     setState(() {
-      _times.add(_fmtTimeOfDay(t));
+      _times.add(time);
       _times.sort(); // "HH:mm" se trie lexicographiquement
     });
   }
@@ -254,7 +268,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                   title: Text(label,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   trailing: _selectedForm == label
-                      ? const Icon(Icons.check_rounded, color: Color(0xFF12B76A))
+                      ? const Icon(Icons.check_rounded,
+                          color: Color(0xFF12B76A))
                       : null,
                   onTap: () => Navigator.pop(c, label),
                 ),
@@ -308,10 +323,10 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               const Text('Dosage du médicament',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 4),
-              const Text('Ex : 500 mg — appuyez sur une valeur rapide ou tapez-la.',
+              const Text(
+                  'Ex : 500 mg — appuyez sur une valeur rapide ou tapez-la.',
                   style: TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
               const SizedBox(height: 12),
-              // valeurs rapides
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -347,14 +362,13 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              // valeur + unité
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: textCtl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Quantité',
                         filled: true,
@@ -390,7 +404,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                   minimumSize: const Size.fromHeight(48),
                 ),
                 onPressed: () {
-                  final v = double.tryParse(textCtl.text.replaceAll(',', '.'));
+                  final v =
+                      double.tryParse(textCtl.text.replaceAll(',', '.'));
                   if (v == null || v <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('Entrez une valeur valide (ex : 500)')));
@@ -431,9 +446,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               left: 16,
               right: 16,
               top: 16,
-              // micro marge avant le clavier si jamais il s'ouvre
               bottom: MediaQuery.of(c).viewInsets.bottom + 16),
-          // SingleChildScrollView : la feuille ne doit JAMAIS overflow
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -451,15 +464,16 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                       const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
                 ),
                 const SizedBox(height: 12),
-                // stepper [-  2  +]
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      onPressed: qty <= 1 ? null : () => setSheetState(() => qty--),
-                      style:
-                          IconButton.styleFrom(backgroundColor: const Color(0xFFE0F2F1)),
-                      icon: const Icon(Icons.remove_rounded, color: Color(0xFF0B6B5D)),
+                      onPressed:
+                          qty <= 1 ? null : () => setSheetState(() => qty--),
+                      style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0F2F1)),
+                      icon: const Icon(Icons.remove_rounded,
+                          color: Color(0xFF0B6B5D)),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -469,14 +483,14 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     ),
                     IconButton(
                       onPressed: () => setSheetState(() => qty++),
-                      style:
-                          IconButton.styleFrom(backgroundColor: const Color(0xFFE0F2F1)),
-                      icon: const Icon(Icons.add_rounded, color: Color(0xFF0B6B5D)),
+                      style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0F2F1)),
+                      icon: const Icon(Icons.add_rounded,
+                          color: Color(0xFF0B6B5D)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                // unité de la dose
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -512,6 +526,89 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ---------- valeur ajoutée : vérification du médicament (openFDA) ----------
+
+  Future<void> _lookupDrug() async {
+    final name = _medNameCtrl.text.trim();
+    if (name.length < 3) {
+      _snack('Saisissez le nom du médicament (3 caractères min.).');
+      return;
+    }
+    setState(() {
+      _drugLookupLoading = true;
+      _drugLookupMsg = null;
+      _drugInfo = null;
+    });
+    final info = await DrugInfoService.instance.lookup(name);
+    if (!mounted) return;
+    setState(() {
+      _drugLookupLoading = false;
+      _drugInfo = info;
+      _drugLookupMsg = info == null
+          ? 'Aucune info trouvée (hors ligne ou nom inconnu). Vous pouvez continuer.'
+          : null;
+    });
+  }
+
+  Widget _drugLookupCard() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user_outlined,
+                  size: 18, color: Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Vérifier le médicament (openFDA)',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E3A8A))),
+              ),
+              if (_drugLookupLoading)
+                const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                TextButton(
+                  onPressed: _lookupDrug,
+                  child: const Text('Vérifier'),
+                ),
+            ],
+          ),
+          const Text(
+            'Valeur ajoutée : info issue d\'un service web externe (openFDA).',
+            style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+          ),
+          if (_drugInfo != null) ...[
+            const SizedBox(height: 6),
+            Text('Trouvé : ${_drugInfo!.name}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: Color(0xFF166534))),
+            if (_drugInfo!.purpose != null)
+              Text(_drugInfo!.purpose!,
+                  style: const TextStyle(fontSize: 12)),
+          ],
+          if (_drugLookupMsg != null) ...[
+            const SizedBox(height: 6),
+            Text(_drugLookupMsg!,
+                style:
+                    const TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+          ],
+        ],
       ),
     );
   }
@@ -603,14 +700,25 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             _section('MÉDICAMENT'),
-            _field(
-              label: 'Nom du médicament *',
-              hint: 'Ex : Amoxicilline',
-              initialValue: widget.treatment?.medicationName,
-              icon: Icons.medication_rounded,
+            TextFormField(
+              controller: _medNameCtrl,
               validator: _required,
-              onSaved: (v) => _medName = v!,
+              onSaved: (v) => _medName = v ?? '',
+              onChanged: (_) {
+                if (_drugInfo != null || _drugLookupMsg != null) {
+                  setState(() {
+                    _drugInfo = null;
+                    _drugLookupMsg = null;
+                  });
+                }
+              },
+              decoration: _decoration(
+                labelText: 'Nom du médicament *',
+                icon: Icons.medication_rounded,
+                hint: 'Ex : Amoxicilline',
+              ),
             ),
+            _drugLookupCard(),
             _pickerField(
               label: 'Forme',
               value: _selectedForm == null ? null : (_selectedForm!),
@@ -666,7 +774,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             _infoCard(
               icon: Icons.query_stats_rounded,
               title: 'Fréquence : ${_times.length} prise(s) par jour',
-              subtitle: 'Les prises sont planifiées automatiquement chaque '
+              subtitle:
+                  'Les prises sont planifiées automatiquement chaque '
                   'jour à ces horaires (modifiables après).',
             ),
 
@@ -686,7 +795,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               suffix: _end == null
                   ? IconButton(
                       tooltip: 'Choisir une date de fin',
-                      icon: const Icon(Icons.calendar_today_rounded, size: 20),
+                      icon:
+                          const Icon(Icons.calendar_today_rounded, size: 20),
                       onPressed: () => _pickDate(false),
                     )
                   : IconButton(
@@ -734,8 +844,10 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
 
   // ---------- helpers UI ----------
 
-  IconData _iconOf(String? form) =>
-      _kForms.firstWhere((f) => f.$1 == form, orElse: () => ('', Icons.medication_rounded)).$2;
+  IconData _iconOf(String? form) => _kForms
+      .firstWhere((f) => f.$1 == form,
+          orElse: () => ('', Icons.medication_rounded))
+      .$2;
 
   Widget _section(String title) => Padding(
         padding: const EdgeInsets.only(top: 18, bottom: 8),
@@ -805,26 +917,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF0B6B5D), width: 1.5)),
-      );
-
-  /// Champ texte libre (nom du médicament)
-  Widget _field({
-    required String label,
-    required String hint,
-    String? initialValue,
-    IconData? icon,
-    String? Function(String?)? validator,
-    void Function(String?)? onSaved,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: TextFormField(
-          initialValue: initialValue,
-          validator: validator,
-          onSaved: onSaved,
-          decoration: _decoration(labelText: label, icon: icon, hint: hint),
-        ),
+            borderSide:
+                const BorderSide(color: Color(0xFF0B6B5D), width: 1.5)),
       );
 
   /// Champ "ne se tape pas" : readOnly + onTap -> picker
@@ -846,7 +940,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             labelText: label,
             icon: icon,
             hint: hint,
-            suffix: const Icon(Icons.expand_more_rounded, size: 20, color: Color(0xFF6B7280)),
+            suffix: const Icon(Icons.expand_more_rounded,
+                size: 20, color: Color(0xFF6B7280)),
           ),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
@@ -868,7 +963,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
           readOnly: true,
           onTap: onTap,
           validator: validator,
-          decoration: _decoration(labelText: labelText, icon: icon, suffix: suffix),
+          decoration:
+              _decoration(labelText: labelText, icon: icon, suffix: suffix),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       );

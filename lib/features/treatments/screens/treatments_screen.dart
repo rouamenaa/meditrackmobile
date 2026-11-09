@@ -210,7 +210,27 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
           return const Center(child: CircularProgressIndicator(color: kPrimary));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Erreur : ${snapshot.error}'));
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: kMuted, size: 36),
+                  const SizedBox(height: 10),
+                  Text('Erreur : ${snapshot.error}',
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _reload,
+                    style: FilledButton.styleFrom(backgroundColor: kPrimary),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Réessayer'),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         final ov = snapshot.data!;
         return ListView(
