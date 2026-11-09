@@ -92,6 +92,7 @@ class TreatmentRepository {
       CREATE TABLE IF NOT EXISTS treatments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
+        medication_id INTEGER,
         medication_name TEXT NOT NULL,
         medication_dosage TEXT,
         dose TEXT NOT NULL,
@@ -101,6 +102,13 @@ class TreatmentRepository {
         status TEXT NOT NULL DEFAULT 'active'
       )
     ''');
+    // Migration douce : base existante créée avant le lien médicament.
+    try {
+      await db.execute(
+          'ALTER TABLE treatments ADD COLUMN medication_id INTEGER');
+    } catch (_) {
+      // colonne déjà présente
+    }
     await db.execute('''
       CREATE TABLE IF NOT EXISTS intake_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

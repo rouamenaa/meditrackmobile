@@ -14,6 +14,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../medications/models/medication.dart';
+import '../../medications/repositories/medication_repository.dart';
 import '../models/treatment.dart';
 import '../repositories/treatment_repository.dart';
 import '../services/drug_info_service.dart';
@@ -54,6 +56,10 @@ class TreatmentFormScreen extends StatefulWidget {
 class _TreatmentFormState extends State<TreatmentFormScreen> {
   final _key = GlobalKey<FormState>();
 
+  // ---------- lien optionnel vers le catalogue Médicaments ----------
+  int? _medicationId;
+  final _medRepo = MedicationRepository();
+
   // ---------- champs texte (validate() + save(), comme en cours)
   String _medName = '';
   final _medNameCtrl = TextEditingController();
@@ -90,6 +96,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     super.initState();
     final t = widget.treatment;
     if (t != null) {
+      _medicationId = t.medicationId;
       _medNameCtrl.text = t.medicationName;
       _start = t.startDate;
       _startCtl.text = _fmtDate(t.startDate);
@@ -530,6 +537,69 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     );
   }
 
+  Future<void> _pickFromCatalog() async {
+    final meds = await _medRepo.allForUser(widget.userId);
+    if (!mounted) return;
+    if (meds.isEmpty) {
+      _snack('Aucun médicament dans votre catalogue. Saisissez un nom ou ajoutez-en un dans Médicaments.');
+      return;
+    }
+    final chosen = await showModalBottomSheet<Medication>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Choisir depuis mes médicaments',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: meds.length,
+                itemBuilder: (_, i) {
+                  final m = meds[i];
+                  return ListTile(
+                    leading: const Icon(Icons.medication_rounded,
+                        color: Color(0xFF0B6B5D)),
+                    title: Text(m.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: m.dosage == null ? null : Text(m.dosage!),
+                    trailing: _medicationId == m.id
+                        ? const Icon(Icons.check_rounded,
+                            color: Color(0xFF12B76A))
+                        : null,
+                    onTap: () => Navigator.pop(c, m),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null && mounted) {
+      setState(() {
+        _medicationId = chosen.id;
+        _medNameCtrl.text = chosen.name;
+        _medName = chosen.name;
+        if ((chosen.dosage ?? '').trim().isNotEmpty) {
+          _dosage = chosen.dosage;
+          _dosageCtrl.text = chosen.dosage!;
+        }
+        _drugInfo = null;
+        _drugLookupMsg = null;
+      });
+    }
+  }
+
   // ---------- valeur ajoutée : vérification du médicament (openFDA) ----------
 
   Future<void> _lookupDrug() async {
@@ -572,7 +642,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                   size: 18, color: Color(0xFF2563EB)),
               const SizedBox(width: 8),
               const Expanded(
-                child: Text('Vérifier le médicament (openFDA)',
+                child: Text('Informations sur le médicament',
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF1E3A8A))),
@@ -585,22 +655,26 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               else
                 TextButton(
                   onPressed: _lookupDrug,
-                  child: const Text('Vérifier'),
+                  child: const Text('Rechercher'),
                 ),
             ],
           ),
-          const Text(
-            'Valeur ajoutée : info issue d\'un service web externe (openFDA).',
-            style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-          ),
+          if (_drugInfo == null && _drugLookupMsg == null && !_drugLookupLoading)
+            const Text(
+              'Vérifiez le nom et consultez les informations disponibles.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            ),
           if (_drugInfo != null) ...[
             const SizedBox(height: 6),
-            Text('Trouvé : ${_drugInfo!.name}',
+            Text(_drugInfo!.name,
                 style: const TextStyle(
                     fontWeight: FontWeight.w700, color: Color(0xFF166534))),
             if (_drugInfo!.purpose != null)
-              Text(_drugInfo!.purpose!,
-                  style: const TextStyle(fontSize: 12)),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(_drugInfo!.purpose!,
+                    style: const TextStyle(fontSize: 12)),
+              ),
           ],
           if (_drugLookupMsg != null) ...[
             const SizedBox(height: 6),
@@ -652,6 +726,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     final t = Treatment(
       id: widget.treatment?.id,
       userId: widget.userId,
+      medicationId: _medicationId,
       medicationName: _medName.trim(),
       medicationDosage: _dosage,
       dose: _dose.trim().isEmpty ? '$_doseQty $_doseUnit' : _dose,
@@ -705,8 +780,9 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               validator: _required,
               onSaved: (v) => _medName = v ?? '',
               onChanged: (_) {
-                if (_drugInfo != null || _drugLookupMsg != null) {
+                if (_medicationId != null || _drugInfo != null || _drugLookupMsg != null) {
                   setState(() {
+                    _medicationId = null; // saisie libre -> plus lié au catalogue
                     _drugInfo = null;
                     _drugLookupMsg = null;
                   });
@@ -716,6 +792,19 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                 labelText: 'Nom du médicament *',
                 icon: Icons.medication_rounded,
                 hint: 'Ex : Amoxicilline',
+                suffix: _medicationId != null
+                    ? const Icon(Icons.link_rounded, color: Color(0xFF0B6B5D))
+                    : null,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _pickFromCatalog,
+                icon: const Icon(Icons.medication_liquid_rounded, size: 18),
+                label: Text(_medicationId == null
+                    ? 'Choisir depuis mes médicaments'
+                    : 'Lié au catalogue (changer)'),
               ),
             ),
             _drugLookupCard(),

@@ -1,23 +1,26 @@
-import '../../../database/database_helper.dart';
 import '../models/medecin.dart';
+import '../services/api_service.dart';
 
+/// Médecins gérés côté serveur (MongoDB), exposés via /users/:id/medecins.
+/// (Pas de table SQLite locale "medecins" dans DatabaseHelper.)
 class MedecinRepository {
-  final _dbHelper = DatabaseHelper.instance;
+  final _api = ApiService();
 
-  Future<List<Medecin>> getByUser(int userId) async {
-    final db = await _dbHelper.database;
-    final rows = await db.query('medecins',
-        where: 'user_id = ?', whereArgs: [userId], orderBy: 'id');
-    return rows.map(Medecin.fromMap).toList();
+  Future<List<Medecin>> getByUser(String userId) async {
+    final data = await _api.get('/users/$userId/medecins');
+    final list = (data as List?) ?? const [];
+    return list
+        .map((e) => Medecin.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
-  Future<int> add(Medecin m) async {
-    final db = await _dbHelper.database;
-    return db.insert('medecins', m.toMap()..remove('id'));
+  Future<Medecin> add(String userId, Medecin m) async {
+    final data = await _api.post('/users/$userId/medecins', m.toJson()..remove('id'));
+    return Medecin.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
-  Future<bool> delete(int id) async {
-    final db = await _dbHelper.database;
-    return await db.delete('medecins', where: 'id = ?', whereArgs: [id]) > 0;
+  Future<bool> delete(String userId, String medId) async {
+    await _api.delete('/users/$userId/medecins/$medId');
+    return true;
   }
 }
