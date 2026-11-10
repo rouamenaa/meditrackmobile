@@ -4,6 +4,7 @@ import '../models/physical_activity.dart';
 import '../services/activity_reminder_service.dart';
 import '../services/activity_service.dart';
 import '../widgets/activity_card.dart';
+import '../widgets/daily_motivation_card.dart';
 import 'activity_form_screen.dart';
 import 'activity_reminder_screen.dart';
 import 'activity_recommendations_screen.dart';
@@ -243,7 +244,10 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
               },
             ),
 
-            // 2. Bannière d'accès aux Recommandations personnalisées
+            // 2. Carte « Conseil & Motivation du Jour » (API ZenQuotes / Repli Sport-Santé)
+            const DailyMotivationCard(),
+
+            // 3. Bannière d'accès aux Recommandations personnalisées
             _buildRecommendationsBanner(),
 
             // 3. Filtres par type de sport (Barre horizontale de chips)

@@ -1,11 +1,17 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meditrackmobile/features/auth/models/user.dart';
 import 'package:meditrackmobile/features/physical_activity/models/activity_recommendation.dart';
 import 'package:meditrackmobile/features/physical_activity/models/activity_reminder_settings.dart';
+import 'package:meditrackmobile/features/physical_activity/models/daily_motivation.dart';
 import 'package:meditrackmobile/features/physical_activity/models/physical_activity.dart';
 import 'package:meditrackmobile/features/physical_activity/services/activity_recommendation_service.dart';
 import 'package:meditrackmobile/features/physical_activity/services/activity_reminder_service.dart';
 import 'package:meditrackmobile/features/physical_activity/services/activity_service.dart';
+import 'package:meditrackmobile/features/physical_activity/services/motivation_service.dart';
 
 void main() {
   group('PhysicalActivity Model Tests', () {
@@ -680,6 +686,176 @@ void main() {
       // 4. Suppression de la dernière séance du mois
       list.removeWhere((a) => a.id == 1);
       expect(getCount(), 0); // Passe immédiatement à 0
+    });
+  });
+
+  group('ZenQuotes API and Daily Motivation Tests', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('DailyMotivation.fromZenQuotesJson() parse correctement le JSON retourné par l\'API', () {
+      final json = {
+        'q': 'It does not matter how slowly you go as long as you do not stop.',
+        'a': 'Confucius',
+        'h': '<blockquote>...</blockquote>',
+      };
+
+      final motivation = DailyMotivation.fromZenQuotesJson(json);
+
+      expect(motivation.quote, 'It does not matter how slowly you go as long as you do not stop.');
+      expect(motivation.author, 'Confucius');
+      expect(motivation.category, 'Motivation quotidienne');
+      expect(motivation.isFromApi, isTrue);
+    });
+
+    test('DailyMotivation.fromZenQuotesJson() applique les valeurs par défaut en cas de champs manquants', () {
+      final json = <String, dynamic>{};
+      final motivation = DailyMotivation.fromZenQuotesJson(json);
+
+      expect(motivation.quote.isNotEmpty, isTrue);
+      expect(motivation.author, 'ZenQuotes');
+      expect(motivation.isFromApi, isTrue);
+    });
+
+    test('Sérialisation toMap() / fromMap() et JSON round-trip de DailyMotivation', () {
+      final now = DateTime(2026, 11, 10, 8, 0);
+      final motivation = DailyMotivation(
+        quote: 'La marche est le meilleur remède de l’homme.',
+        author: 'Hippocrate',
+        category: 'Santé & Longévité',
+        date: now,
+        isFromApi: false,
+      );
+
+      final map = motivation.toMap();
+      expect(map['quote'], 'La marche est le meilleur remède de l’homme.');
+      expect(map['author'], 'Hippocrate');
+      expect(map['category'], 'Santé & Longévité');
+      expect(map['isFromApi'], 0);
+
+      final restored = DailyMotivation.fromMap(map);
+      expect(restored.quote, motivation.quote);
+      expect(restored.author, motivation.author);
+      expect(restored.category, motivation.category);
+      expect(restored.isFromApi, isFalse);
+
+      final jsonString = motivation.toJson();
+      final fromJson = DailyMotivation.fromJson(jsonString);
+      expect(fromJson.quote, motivation.quote);
+      expect(fromJson.author, motivation.author);
+    });
+
+    test('copyWith() modifie uniquement les attributs spécifiés', () {
+      final original = DailyMotivation(
+        quote: 'Citation test',
+        author: 'Auteur initial',
+        category: 'Catégorie initiale',
+        isFromApi: false,
+      );
+
+      final updated = original.copyWith(
+        quote: 'Nouvelle citation',
+        isFromApi: true,
+      );
+
+      expect(updated.quote, 'Nouvelle citation');
+      expect(updated.author, 'Auteur initial');
+      expect(updated.category, 'Catégorie initiale');
+      expect(updated.isFromApi, isTrue);
+    });
+
+    test('MotivationService.getLocalFallback() retourne des citations sport-santé valides et bienveillantes', () {
+      final service = MotivationService.instance;
+      final fallback = service.getLocalFallback(DateTime(2026, 11, 10));
+
+      expect(fallback.quote.isNotEmpty, isTrue);
+      expect(fallback.author.isNotEmpty, isTrue);
+      expect(fallback.category.isNotEmpty, isTrue);
+      expect(fallback.isFromApi, isFalse);
+    });
+
+    test('MotivationService consomme avec succès l\'API ZenQuotes via MockClient (Status 200)', () async {
+      final mockClient = MockClient((request) async {
+        final mockResponse = [
+          {
+            'q': 'Believe you can and you are halfway there.',
+            'a': 'Theodore Roosevelt',
+            'h': '<blockquote>...</blockquote>',
+          }
+        ];
+        return http.Response(jsonEncode(mockResponse), 200, headers: {'content-type': 'application/json'});
+      });
+
+      final service = MotivationService.instance;
+      final result = await service.getDailyMotivation(forceRefresh: true, client: mockClient);
+
+      expect(result.quote, 'Believe you can and you are halfway there.');
+      expect(result.author, 'Theodore Roosevelt');
+      expect(result.isFromApi, isTrue);
+    });
+
+    test('MotivationService bascule automatiquement sur le repli sport-santé en cas d\'erreur réseau (Status 500)', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('Internal Server Error', 500);
+      });
+
+      final service = MotivationService.instance;
+      final result = await service.getDailyMotivation(forceRefresh: true, client: mockClient);
+
+      expect(result.quote.isNotEmpty, isTrue);
+      expect(result.isFromApi, isFalse); // Repli local
+    });
+
+    test('MotivationService détecte le message de limitation de requêtes ZenQuotes et applique le repli', () async {
+      final mockClient = MockClient((request) async {
+        final rateLimitResponse = [
+          {
+            'q': 'Too many requests. Please wait a few seconds before trying again.',
+            'a': 'zenquotes.io',
+          }
+        ];
+        return http.Response(jsonEncode(rateLimitResponse), 200, headers: {'content-type': 'application/json'});
+      });
+
+      final service = MotivationService.instance;
+      final result = await service.getDailyMotivation(forceRefresh: true, client: mockClient);
+
+      // Ne doit pas afficher le message d'erreur brut au patient mais un repli élégant
+      expect(result.quote.contains('Too many requests'), isFalse);
+      expect(result.isFromApi, isFalse);
+    });
+
+    test('MotivationService met en cache le conseil du jour et évite les requêtes réseau superflues', () async {
+      int requestCount = 0;
+      final mockClient = MockClient((request) async {
+        requestCount++;
+        final mockResponse = [
+          {
+            'q': 'Keep your face always toward the sunshine.',
+            'a': 'Walt Whitman',
+          }
+        ];
+        return http.Response(jsonEncode(mockResponse), 200, headers: {'content-type': 'application/json'});
+      });
+
+      final service = MotivationService.instance;
+      await service.clearCache();
+
+      // 1er appel : forceRefresh -> requête réseau
+      final first = await service.getDailyMotivation(forceRefresh: true, client: mockClient);
+      expect(requestCount, 1);
+      expect(first.quote, 'Keep your face always toward the sunshine.');
+
+      // 2e appel : appel normal sans forceRefresh -> chargé depuis le cache SharedPreferences
+      final second = await service.getDailyMotivation(forceRefresh: false, client: mockClient);
+      expect(requestCount, 1); // Aucun appel réseau supplémentaire !
+      expect(second.quote, first.quote);
+      expect(second.author, first.author);
+
+      // 3e appel : utilisateur demande explicitement un rafraîchissement (forceRefresh: true)
+      await service.getDailyMotivation(forceRefresh: true, client: mockClient);
+      expect(requestCount, 2); // Appel réseau effectué
     });
   });
 }
