@@ -257,4 +257,102 @@ void main() {
       expect(service.notificationIdForActivity(1) != service.notificationIdForActivity(2), isTrue);
     });
   });
+
+  group('Sports Agenda Logic Tests', () {
+    test('Filtrage des séances par jour spécifique dans l\'agenda', () {
+      final act1 = PhysicalActivity(
+        id: 1,
+        type: 'Course',
+        durationMinutes: 45,
+        intensity: 'Élevée',
+        activityDate: DateTime(2026, 11, 12, 9, 30),
+      );
+
+      final act2 = PhysicalActivity(
+        id: 2,
+        type: 'Marche',
+        durationMinutes: 30,
+        intensity: 'Faible',
+        activityDate: DateTime(2026, 11, 12, 17, 0),
+      );
+
+      final act3 = PhysicalActivity(
+        id: 3,
+        type: 'Vélo',
+        durationMinutes: 60,
+        intensity: 'Modérée',
+        activityDate: DateTime(2026, 11, 15, 14, 0),
+      );
+
+      final all = [act1, act2, act3];
+      final targetDay = DateTime(2026, 11, 12);
+
+      bool isSameDay(DateTime a, DateTime b) =>
+          a.year == b.year && a.month == b.month && a.day == b.day;
+
+      final daySessions = all.where((a) => isSameDay(a.activityDate, targetDay)).toList();
+
+      expect(daySessions.length, 2);
+      expect(daySessions.map((a) => a.id), containsAll([1, 2]));
+    });
+
+    test('Distinction des séances passées et futures dans le calendrier', () {
+      final referenceNow = DateTime(2026, 11, 10, 12, 0);
+
+      final pastActivity = PhysicalActivity(
+        type: 'Marche',
+        durationMinutes: 30,
+        intensity: 'Faible',
+        activityDate: DateTime(2026, 11, 9, 10, 0),
+      );
+
+      final futureActivity = PhysicalActivity(
+        type: 'Course',
+        durationMinutes: 45,
+        intensity: 'Modérée',
+        activityDate: DateTime(2026, 11, 11, 10, 0),
+      );
+
+      expect(pastActivity.activityDate.isBefore(referenceNow), isTrue);
+      expect(futureActivity.activityDate.isAfter(referenceNow), isTrue);
+    });
+
+    test('Calcul des jours avec indicateur de séance pour un mois donné', () {
+      final activities = [
+        PhysicalActivity(
+          type: 'Course',
+          durationMinutes: 30,
+          intensity: 'Modérée',
+          activityDate: DateTime(2026, 11, 5, 8, 0),
+        ),
+        PhysicalActivity(
+          type: 'Natation',
+          durationMinutes: 45,
+          intensity: 'Élevée',
+          activityDate: DateTime(2026, 11, 5, 18, 0),
+        ),
+        PhysicalActivity(
+          type: 'Marche',
+          durationMinutes: 60,
+          intensity: 'Faible',
+          activityDate: DateTime(2026, 11, 20, 11, 0),
+        ),
+        PhysicalActivity(
+          type: 'Vélo',
+          durationMinutes: 90,
+          intensity: 'Élevée',
+          activityDate: DateTime(2026, 12, 1, 10, 0), // Mois suivant
+        ),
+      ];
+
+      // Jours uniques avec séances en Novembre 2026
+      final novemberDaysWithActivities = activities
+          .where((a) => a.activityDate.year == 2026 && a.activityDate.month == 11)
+          .map((a) => a.activityDate.day)
+          .toSet();
+
+      expect(novemberDaysWithActivities, equals({5, 20}));
+      expect(novemberDaysWithActivities.contains(1), isFalse);
+    });
+  });
 }

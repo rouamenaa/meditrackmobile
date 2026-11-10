@@ -7,11 +7,13 @@ import '../services/activity_service.dart';
 class ActivityFormScreen extends StatefulWidget {
   final PhysicalActivity? activityToEdit;
   final String? userId;
+  final DateTime? initialDate;
 
   const ActivityFormScreen({
     super.key,
     this.activityToEdit,
     this.userId,
+    this.initialDate,
   });
 
   @override
@@ -73,8 +75,10 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     } else {
       _selectedType = 'Marche';
       _selectedIntensity = 'Modérée';
-      _selectedDate = DateTime.now();
-      _selectedTime = TimeOfDay.now();
+      _selectedDate = widget.initialDate ?? DateTime.now();
+      _selectedTime = widget.initialDate != null
+          ? TimeOfDay.fromDateTime(widget.initialDate!)
+          : TimeOfDay.now();
       _durationController.text = '30';
     }
 

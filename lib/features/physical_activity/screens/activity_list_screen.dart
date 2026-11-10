@@ -6,6 +6,7 @@ import '../services/activity_service.dart';
 import '../widgets/activity_card.dart';
 import 'activity_form_screen.dart';
 import 'activity_reminder_screen.dart';
+import 'sports_agenda_screen.dart';
 
 class ActivityListScreen extends StatefulWidget {
   final String? userId;
@@ -159,6 +160,18 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         foregroundColor: kNavy,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_rounded),
+            tooltip: 'Agenda sportif',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SportsAgendaScreen(userId: _effectiveUserId),
+                ),
+              );
+              _loadData();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_active_outlined),
             tooltip: 'Rappels intelligents',
