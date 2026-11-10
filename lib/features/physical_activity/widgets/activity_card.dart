@@ -74,12 +74,44 @@ class ActivityCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          _formatDateTime(activity.activityDate),
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: Colors.grey.shade600,
-                          ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              _formatDateTime(activity.activityDate),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            if (activity.activityDate.isAfter(DateTime.now()))
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: kPrimaryGreen.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.notifications_active,
+                                        size: 11, color: kPrimaryGreen),
+                                    SizedBox(width: 3),
+                                    Text(
+                                      'Rappel -5 min',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: kPrimaryGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),

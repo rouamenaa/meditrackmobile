@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meditrackmobile/features/physical_activity/models/activity_reminder_settings.dart';
 import 'package:meditrackmobile/features/physical_activity/models/physical_activity.dart';
+import 'package:meditrackmobile/features/physical_activity/services/activity_reminder_service.dart';
 import 'package:meditrackmobile/features/physical_activity/services/activity_service.dart';
 
 void main() {
@@ -176,6 +178,83 @@ void main() {
       expect(updated.distanceKm, 25.0);
       expect(updated.intensity, 'Modérée');
       expect(updated.caloriesBurned, 400);
+    });
+  });
+
+  group('Smart Session Reminders Tests (-5 minutes)', () {
+    test('Valeurs par défaut : activé avec 5 minutes d\'avance', () {
+      const settings = ActivityReminderSettings();
+
+      expect(settings.enabled, isTrue);
+      expect(settings.leadTimeMinutes, 5);
+    });
+
+    test('calculateReminderTime() calcule exactement 5 minutes avant la séance', () {
+      const settings = ActivityReminderSettings(); // 5 min
+      final sessionDate = DateTime(2026, 11, 11, 10, 0); // Demain à 10h00
+      final reminderTime = settings.calculateReminderTime(sessionDate);
+
+      expect(reminderTime, DateTime(2026, 11, 11, 9, 55)); // Exactement 09h55
+    });
+
+    test('isReminderInFuture() valide correctement si le rappel est futur ou déjà passé', () {
+      const settings = ActivityReminderSettings(); // 5 min
+      final now = DateTime(2026, 11, 10, 12, 0); // Référence : 12h00
+
+      // Séance demain à 10h00 -> rappel demain à 09h55 (> 12h00) -> true
+      final futureSession = DateTime(2026, 11, 11, 10, 0);
+      expect(settings.isReminderInFuture(futureSession, now), isTrue);
+
+      // Séance passée hier -> false
+      final pastSession = DateTime(2026, 11, 9, 15, 0);
+      expect(settings.isReminderInFuture(pastSession, now), isFalse);
+
+      // Séance dans 3 minutes (12h03) -> rappel à 11h58 (< 12h00) -> false
+      final tooCloseSession = DateTime(2026, 11, 10, 12, 3);
+      expect(settings.isReminderInFuture(tooCloseSession, now), isFalse);
+
+      // Séance dans 10 minutes (12h10) -> rappel à 12h05 (> 12h00) -> true
+      final validUpcomingSession = DateTime(2026, 11, 10, 12, 10);
+      expect(settings.isReminderInFuture(validUpcomingSession, now), isTrue);
+    });
+
+    test('Sérialisation toMap() et désérialisation fromMap()', () {
+      const original = ActivityReminderSettings(
+        enabled: false,
+        leadTimeMinutes: 10,
+      );
+
+      final map = original.toMap();
+      expect(map['enabled'], isFalse);
+      expect(map['leadTimeMinutes'], 10);
+
+      final reconstructed = ActivityReminderSettings.fromMap(map);
+      expect(reconstructed.enabled, isFalse);
+      expect(reconstructed.leadTimeMinutes, 10);
+    });
+
+    test('fromMap() avec map vide utilise les valeurs par défaut fiables', () {
+      final parsed = ActivityReminderSettings.fromMap(const {});
+
+      expect(parsed.enabled, isTrue);
+      expect(parsed.leadTimeMinutes, 5);
+    });
+
+    test('copyWith() modifie uniquement les champs cibles', () {
+      const initial = ActivityReminderSettings();
+
+      final updated = initial.copyWith(enabled: false);
+      expect(updated.enabled, isFalse);
+      expect(updated.leadTimeMinutes, 5); // Inchangé
+    });
+
+    test('ActivityReminderService génère des IDs de notification uniques et isolés', () {
+      final service = ActivityReminderService.instance;
+
+      expect(service.notificationIdForActivity(1), 30001);
+      expect(service.notificationIdForActivity(42), 30042);
+      expect(service.notificationIdForActivity(105), 30105);
+      expect(service.notificationIdForActivity(1) != service.notificationIdForActivity(2), isTrue);
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../auth/services/session.dart';
 import '../models/physical_activity.dart';
+import '../services/activity_reminder_service.dart';
 import '../services/activity_service.dart';
 
 class ActivityFormScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class ActivityFormScreen extends StatefulWidget {
 class _ActivityFormScreenState extends State<ActivityFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _activityService = ActivityService();
+  final _reminderService = ActivityReminderService();
 
   late String _selectedType;
   late String _selectedIntensity;
@@ -110,9 +112,9 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate.isAfter(now) ? now : _selectedDate,
+      initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: now, // Empêche la sélection de dates futures pour une séance
+      lastDate: DateTime(now.year + 5), // Permet de programmer des séances futures
     );
     if (picked != null) {
       setState(() {
@@ -188,19 +190,48 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
         caloriesBurned: calories,
       );
 
+      bool reminderScheduled = false;
+
       if (_isEditMode) {
         await _activityService.update(activity);
+        if (activity.id != null) {
+          // Annule l'ancienne notification et replanifie si la séance est toujours dans le futur
+          await _reminderService.cancelReminderForActivity(activity.id!);
+          reminderScheduled =
+              await _reminderService.scheduleReminderForActivity(activity);
+        }
       } else {
-        await _activityService.create(activity);
+        final created = await _activityService.create(activity);
+        // Programme automatiquement un rappel 5 minutes avant la séance si elle est dans le futur
+        reminderScheduled =
+            await _reminderService.scheduleReminderForActivity(created);
       }
 
       if (!mounted) return;
 
+      final String message;
+      if (_isEditMode) {
+        message = reminderScheduled
+            ? 'Activité modifiée. Rappel programmé 5 min avant !'
+            : 'Activité modifiée avec succès';
+      } else {
+        message = reminderScheduled
+            ? 'Activité enregistrée. Rappel programmé 5 min avant !'
+            : 'Activité enregistrée avec succès';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditMode
-              ? 'Activité modifiée avec succès'
-              : 'Activité enregistrée avec succès'),
+          content: Row(
+            children: [
+              if (reminderScheduled) ...[
+                const Icon(Icons.notifications_active_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+              ],
+              Expanded(child: Text(message)),
+            ],
+          ),
           backgroundColor: const Color(0xFF0B6B5D),
           behavior: SnackBarBehavior.floating,
         ),
@@ -373,6 +404,39 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     ),
                   ],
                 ),
+                if (_selectedDate.isAfter(DateTime.now())) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: kPrimaryGreen.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: kPrimaryGreen.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active_rounded,
+                          color: kPrimaryGreen,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Séance future : une notification vous sera envoyée 5 min avant (${_selectedDate.subtract(const Duration(minutes: 5)).hour.toString().padLeft(2, '0')}:${_selectedDate.subtract(const Duration(minutes: 5)).minute.toString().padLeft(2, '0')}).',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: kNavy,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
 
                 // 3. Durée et Intensité

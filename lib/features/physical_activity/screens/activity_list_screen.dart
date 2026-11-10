@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../auth/services/session.dart';
 import '../models/physical_activity.dart';
+import '../services/activity_reminder_service.dart';
 import '../services/activity_service.dart';
 import '../widgets/activity_card.dart';
 import 'activity_form_screen.dart';
+import 'activity_reminder_screen.dart';
 
 class ActivityListScreen extends StatefulWidget {
   final String? userId;
@@ -36,15 +38,22 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   @override
   void initState() {
     super.initState();
+    ActivityReminderService.instance.init();
     _loadData();
   }
 
   void _loadData() {
     setState(() {
-      _activitiesFuture = _activityService.getAll(
-        userId: _effectiveUserId,
-        typeFilter: _selectedFilter == 'Tous' ? null : _selectedFilter,
-      );
+      _activitiesFuture = _activityService
+          .getAll(
+            userId: _effectiveUserId,
+            typeFilter: _selectedFilter == 'Tous' ? null : _selectedFilter,
+          )
+          .then((list) {
+            // Synchronise automatiquement les rappels 5 min avant pour les séances futures
+            ActivityReminderService.instance.syncUpcomingReminders(list);
+            return list;
+          });
       _summaryFuture = _activityService.getWeeklySummary(userId: _effectiveUserId);
     });
   }
@@ -110,10 +119,12 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     if (confirmed == true && activity.id != null) {
       try {
         await _activityService.delete(activity.id!);
+        // Annule la notification programmée pour cette séance
+        await ActivityReminderService.instance.cancelReminderForActivity(activity.id!);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Activité supprimée avec succès'),
+            content: Text('Activité supprimée et rappel annulé'),
             backgroundColor: Color(0xFF0B6B5D),
             behavior: SnackBarBehavior.floating,
           ),
@@ -148,6 +159,17 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         foregroundColor: kNavy,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active_outlined),
+            tooltip: 'Rappels intelligents',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ActivityReminderScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Actualiser',
