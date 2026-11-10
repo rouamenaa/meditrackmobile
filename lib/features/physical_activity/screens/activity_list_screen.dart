@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../auth/services/session.dart';
 import '../models/physical_activity.dart';
 import '../services/activity_service.dart';
 import '../widgets/activity_card.dart';
 import 'activity_form_screen.dart';
 
 class ActivityListScreen extends StatefulWidget {
-  final int? userId;
+  final String? userId;
 
   const ActivityListScreen({super.key, this.userId});
 
@@ -16,31 +17,50 @@ class ActivityListScreen extends StatefulWidget {
 class _ActivityListScreenState extends State<ActivityListScreen> {
   final _activityService = ActivityService();
   late Future<List<PhysicalActivity>> _activitiesFuture;
+  late Future<ActivityWeeklySummary> _summaryFuture;
+
+  String _selectedFilter = 'Tous';
+
+  final List<String> _filters = const [
+    'Tous',
+    'Marche',
+    'Course',
+    'Vélo',
+    'Natation',
+    'Autre',
+  ];
+
+  String? get _effectiveUserId =>
+      widget.userId ?? Session.instance.user?.id;
 
   @override
   void initState() {
     super.initState();
-    _loadActivities();
+    _loadData();
   }
 
-  void _loadActivities() {
+  void _loadData() {
     setState(() {
-      _activitiesFuture = _activityService.getAll(userId: widget.userId);
+      _activitiesFuture = _activityService.getAll(
+        userId: _effectiveUserId,
+        typeFilter: _selectedFilter == 'Tous' ? null : _selectedFilter,
+      );
+      _summaryFuture = _activityService.getWeeklySummary(userId: _effectiveUserId);
     });
   }
 
   Future<void> _refresh() async {
-    _loadActivities();
+    _loadData();
   }
 
   Future<void> _navigateToAdd() async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => ActivityFormScreen(userId: widget.userId),
+        builder: (_) => ActivityFormScreen(userId: _effectiveUserId),
       ),
     );
     if (result == true) {
-      _loadActivities();
+      _loadData();
     }
   }
 
@@ -49,12 +69,12 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       MaterialPageRoute(
         builder: (_) => ActivityFormScreen(
           activityToEdit: activity,
-          userId: widget.userId,
+          userId: _effectiveUserId,
         ),
       ),
     );
     if (result == true) {
-      _loadActivities();
+      _loadData();
     }
   }
 
@@ -98,7 +118,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        _loadActivities();
+        _loadData();
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,7 +151,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Actualiser',
-            onPressed: _loadActivities,
+            onPressed: _loadData,
           ),
         ],
       ),
@@ -141,137 +161,309 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text(
-          'Ajouter une activité',
+          'Nouvelle séance',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      // FutureBuilder conforme au cours (Séance 5, Slide 8)
-      body: FutureBuilder<List<PhysicalActivity>>(
-        future: _activitiesFuture,
-        builder: (context, snapshot) {
-          // 1. État de chargement asynchrone
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF0B6B5D),
-              ),
-            );
-          }
+      body: RefreshIndicator(
+        color: kPrimaryGreen,
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            // 1. Carte Bilan Hebdomadaire (Objectif 150 min OMS)
+            FutureBuilder<ActivityWeeklySummary>(
+              future: _summaryFuture,
+              builder: (context, snap) {
+                if (!snap.hasData) return const SizedBox.shrink();
+                final summary = snap.data!;
+                return _buildWeeklySummaryCard(summary);
+              },
+            ),
 
-          // 2. Gestion d'erreur
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 56, color: Colors.redAccent),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Erreur : ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style:
-                          const TextStyle(fontSize: 15, color: Colors.black87),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _loadActivities,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Réessayer'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B6B5D),
-                        foregroundColor: Colors.white,
+            // 2. Filtres par type de sport (Barre horizontale de chips)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _filters.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final filter = _filters[i];
+                    final isSelected = _selectedFilter == filter;
+                    return FilterChip(
+                      label: Text(filter),
+                      selected: isSelected,
+                      selectedColor: kPrimaryGreen,
+                      backgroundColor: Colors.white,
+                      labelStyle: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? Colors.white : kNavy,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final activities = snapshot.data ?? [];
-
-          // 3. État vide
-          if (activities.isEmpty) {
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color:
-                            const Color(0xFF0B6B5D).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.fitness_center_rounded,
-                        size: 64,
-                        color: Color(0xFF0B6B5D),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Aucune activité enregistrée',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0A2540),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Suivez votre forme au quotidien en ajoutant vos séances de marche, course, vélo ou natation.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: _navigateToAdd,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Enregistrer ma première activité'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B6B5D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected ? kPrimaryGreen : Colors.grey.shade300,
                         ),
                       ),
-                    ),
-                  ],
+                      showCheckmark: false,
+                      onSelected: (val) {
+                        setState(() {
+                          _selectedFilter = filter;
+                          _loadData();
+                        });
+                      },
+                    );
+                  },
                 ),
               ),
-            );
-          }
+            ),
 
-          // 4. Affichage de la liste avec ListView.builder (Séance 3) et RefreshIndicator
-          return RefreshIndicator(
-            color: const Color(0xFF0B6B5D),
-            onRefresh: _refresh,
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 8, bottom: 88),
-              itemCount: activities.length,
-              itemBuilder: (context, index) {
-                final activity = activities[index];
-                return ActivityCard(
-                  activity: activity,
-                  onEdit: () => _navigateToEdit(activity),
-                  onDelete: () => _confirmDelete(activity),
+            // 3. Liste des activités
+            FutureBuilder<List<PhysicalActivity>>(
+              future: _activitiesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(
+                      child: CircularProgressIndicator(color: kPrimaryGreen),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                        const SizedBox(height: 12),
+                        Text('Erreur : ${snapshot.error}', textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: _loadData,
+                          style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
+                          child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final activities = snapshot.data ?? [];
+
+                if (activities.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: activities.length,
+                  itemBuilder: (context, index) {
+                    final activity = activities[index];
+                    return ActivityCard(
+                      activity: activity,
+                      onEdit: () => _navigateToEdit(activity),
+                      onDelete: () => _confirmDelete(activity),
+                    );
+                  },
                 );
               },
             ),
-          );
-        },
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeeklySummaryCard(ActivityWeeklySummary summary) {
+    const kPrimaryGreen = Color(0xFF0B6B5D);
+    const kNavy = Color(0xFF0A2540);
+    final percent = (summary.goalProgress * 100).round();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.insights_rounded, color: kPrimaryGreen, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Bilan de la semaine',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: kNavy,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: summary.goalAchieved
+                      ? const Color(0xFFDCFCE7)
+                      : kPrimaryGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  summary.goalAchieved ? 'Objectif atteint 🎉' : '$percent% de l\'objectif',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: summary.goalAchieved ? const Color(0xFF15803D) : kPrimaryGreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Barre de progression vers l'objectif 150 min OMS
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: summary.goalProgress,
+              minHeight: 7,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                summary.goalAchieved ? const Color(0xFF12B76A) : kPrimaryGreen,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Statistiques clés (Durée, Séances, Calories)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                label: 'Temps actif',
+                value: '${summary.totalMinutes} min',
+                subtext: '/ ${summary.weeklyGoalMinutes} min OMS',
+              ),
+              Container(height: 28, width: 1, color: Colors.grey.shade200),
+              _buildStatItem(
+                label: 'Séances',
+                value: '${summary.sessionCount}',
+                subtext: summary.sessionCount > 1 ? 'séances' : 'séance',
+              ),
+              Container(height: 28, width: 1, color: Colors.grey.shade200),
+              _buildStatItem(
+                label: 'Calories',
+                value: '${summary.totalCalories}',
+                subtext: 'kcal brûlées',
+                valueColor: Colors.deepOrange,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required String label,
+    required String value,
+    required String subtext,
+    Color? valueColor,
+  }) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: valueColor ?? const Color(0xFF0A2540),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtext,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    const kPrimaryGreen = Color(0xFF0B6B5D);
+    const kNavy = Color(0xFF0A2540);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: kPrimaryGreen.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.fitness_center_rounded,
+                size: 54,
+                color: kPrimaryGreen,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _selectedFilter == 'Tous'
+                  ? 'Aucune activité enregistrée'
+                  : 'Aucune séance de $_selectedFilter',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: kNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _selectedFilter == 'Tous'
+                  ? 'Suivez vos séances de marche, course, vélo ou natation pour maintenir une activité régulière.'
+                  : 'Ajoutez une première séance pour cette catégorie.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade600, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _navigateToAdd,
+              icon: const Icon(Icons.add),
+              label: const Text('Enregistrer une séance'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

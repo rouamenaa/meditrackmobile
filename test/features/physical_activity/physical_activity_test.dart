@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meditrackmobile/features/physical_activity/models/physical_activity.dart';
+import 'package:meditrackmobile/features/physical_activity/services/activity_service.dart';
 
 void main() {
   group('PhysicalActivity Model Tests', () {
-    test('Création et conversion toMap() / fromMap()', () {
+    test('Création et conversion toMap() / fromMap() avec userId String', () {
       final date = DateTime(2026, 10, 22, 14, 30);
       final activity = PhysicalActivity(
         id: 1,
-        userId: 42,
+        userId: 'user_mongodb_123',
         type: 'Course',
         durationMinutes: 45,
         distanceKm: 6.5,
@@ -19,7 +20,7 @@ void main() {
 
       final map = activity.toMap();
       expect(map['id'], 1);
-      expect(map['user_id'], 42);
+      expect(map['user_id'], 'user_mongodb_123');
       expect(map['type'], 'Course');
       expect(map['duration_minutes'], 45);
       expect(map['distance_km'], 6.5);
@@ -30,7 +31,7 @@ void main() {
 
       final reconstructed = PhysicalActivity.fromMap(map);
       expect(reconstructed.id, activity.id);
-      expect(reconstructed.userId, activity.userId);
+      expect(reconstructed.userId, 'user_mongodb_123');
       expect(reconstructed.type, activity.type);
       expect(reconstructed.durationMinutes, activity.durationMinutes);
       expect(reconstructed.distanceKm, activity.distanceKm);
@@ -38,6 +39,95 @@ void main() {
       expect(reconstructed.activityDate, activity.activityDate);
       expect(reconstructed.notes, activity.notes);
       expect(reconstructed.caloriesBurned, activity.caloriesBurned);
+    });
+
+    test('Support de la rétro-compatibilité avec un user_id entier', () {
+      final map = {
+        'id': 2,
+        'user_id': 42, // Ancien format entier en base
+        'type': 'Marche',
+        'duration_minutes': 30,
+        'distance_km': 2.5,
+        'intensity': 'Faible',
+        'activity_date': DateTime(2026, 11, 1).toIso8601String(),
+      };
+
+      final activity = PhysicalActivity.fromMap(map);
+      expect(activity.userId, '42'); // Converti proprement en String
+    });
+
+    test('Calcul des métriques dérivées : allure (pace) et vitesse', () {
+      final running = PhysicalActivity(
+        type: 'Course',
+        durationMinutes: 30,
+        distanceKm: 6.0,
+        intensity: 'Modérée',
+        activityDate: DateTime.now(),
+      );
+
+      expect(running.paceLabel, "5'00\"/km");
+      expect(running.speedKmh, 12.0);
+
+      final walking = PhysicalActivity(
+        type: 'Marche',
+        durationMinutes: 45,
+        distanceKm: 3.8,
+        intensity: 'Faible',
+        activityDate: DateTime.now(),
+      );
+
+      expect(walking.paceLabel, isNotNull);
+      expect(walking.speedKmh, closeTo(5.06, 0.05));
+    });
+
+    test('Estimation automatique des calories (formule MET)', () {
+      // Marche 60 min, intensité modérée (MET 3.6, poids 70 kg) -> 3.6 * 70 * 1 = 252 kcal
+      final calMarche = PhysicalActivity.calculateEstimatedCalories(
+        type: 'Marche',
+        durationMinutes: 60,
+        intensity: 'Modérée',
+      );
+      expect(calMarche, 252);
+
+      // Course 30 min, intensité élevée (MET 11.5, poids 70 kg) -> 11.5 * 70 * 0.5 = 403 kcal
+      final calCourse = PhysicalActivity.calculateEstimatedCalories(
+        type: 'Course',
+        durationMinutes: 30,
+        intensity: 'Élevée',
+      );
+      expect(calCourse, 403);
+
+      // Durée 0 -> 0 kcal
+      final calZero = PhysicalActivity.calculateEstimatedCalories(
+        type: 'Vélo',
+        durationMinutes: 0,
+        intensity: 'Faible',
+      );
+      expect(calZero, 0);
+    });
+
+    test('ActivityWeeklySummary calcule correctement la progression vers l\'objectif OMS', () {
+      const summaryUnder = ActivityWeeklySummary(
+        totalMinutes: 90,
+        totalCalories: 450,
+        totalDistanceKm: 10.0,
+        sessionCount: 2,
+        weeklyGoalMinutes: 150,
+      );
+
+      expect(summaryUnder.goalProgress, closeTo(0.6, 0.01));
+      expect(summaryUnder.goalAchieved, isFalse);
+
+      const summaryOver = ActivityWeeklySummary(
+        totalMinutes: 180,
+        totalCalories: 900,
+        totalDistanceKm: 20.0,
+        sessionCount: 4,
+        weeklyGoalMinutes: 150,
+      );
+
+      expect(summaryOver.goalProgress, 1.0);
+      expect(summaryOver.goalAchieved, isTrue);
     });
 
     test('Support des valeurs facultatives nulles', () {
@@ -54,6 +144,8 @@ void main() {
       expect(activity.distanceKm, isNull);
       expect(activity.notes, isNull);
       expect(activity.caloriesBurned, isNull);
+      expect(activity.paceLabel, isNull);
+      expect(activity.speedKmh, isNull);
 
       final map = activity.toMap();
       final reconstructed = PhysicalActivity.fromMap(map);
