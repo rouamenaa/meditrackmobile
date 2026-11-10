@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meditrackmobile/features/auth/models/user.dart';
+import 'package:meditrackmobile/features/physical_activity/models/activity_recommendation.dart';
 import 'package:meditrackmobile/features/physical_activity/models/activity_reminder_settings.dart';
 import 'package:meditrackmobile/features/physical_activity/models/physical_activity.dart';
+import 'package:meditrackmobile/features/physical_activity/services/activity_recommendation_service.dart';
 import 'package:meditrackmobile/features/physical_activity/services/activity_reminder_service.dart';
 import 'package:meditrackmobile/features/physical_activity/services/activity_service.dart';
 
@@ -353,6 +356,330 @@ void main() {
 
       expect(novemberDaysWithActivities, equals({5, 20}));
       expect(novemberDaysWithActivities.contains(1), isFalse);
+    });
+  });
+
+  group('Personalized Recommendations Engine Tests', () {
+    final service = ActivityRecommendationService.instance;
+
+    test('Modèle ActivityRecommendation toMap() / fromMap() et getters visuels', () {
+      const rec = ActivityRecommendation(
+        id: 'rec_test',
+        title: 'Marche active',
+        activityType: 'Marche',
+        durationMinutes: 30,
+        intensity: 'Modérée',
+        frequencyPerWeek: 3,
+        category: 'Cardio santé',
+        reason: 'Amélioration de l\'endurance',
+        description: 'Marche rapide sur terrain plat',
+        estimatedCalories: 150,
+        medicalAdvice: 'Avis médical conseillé',
+      );
+
+      expect(rec.icon, isNotNull);
+      expect(rec.intensityColor, isNotNull);
+
+      final map = rec.toMap();
+      expect(map['title'], 'Marche active');
+      expect(map['durationMinutes'], 30);
+      expect(map['estimatedCalories'], 150);
+
+      final parsed = ActivityRecommendation.fromMap(map);
+      expect(parsed.title, rec.title);
+      expect(parsed.activityType, rec.activityType);
+      expect(parsed.durationMinutes, rec.durationMinutes);
+      expect(parsed.intensity, rec.intensity);
+      expect(parsed.medicalAdvice, 'Avis médical conseillé');
+    });
+
+    test('Patient débutant / sédentaire (< 60 min) reçoit une reprise en douceur adaptée', () {
+      final user = User(
+        nom: 'Dupont',
+        prenom: 'Jean',
+        email: 'jean.dupont@meditrack.fr',
+        dateNaissance: '1990-05-15', // 36 ans
+      );
+
+      const summary = ActivityWeeklySummary(
+        totalMinutes: 0,
+        totalCalories: 0,
+        totalDistanceKm: 0.0,
+        sessionCount: 0,
+      );
+
+      final recs = service.generateRecommendations(
+        user: user,
+        history: [],
+        summary: summary,
+      );
+
+      expect(recs.isNotEmpty, isTrue);
+      final primary = recs.first;
+      expect(primary.category, 'Reprise en douceur');
+      expect(primary.activityType, 'Marche');
+      expect(primary.durationMinutes, 25);
+      expect(primary.intensity, 'Faible');
+    });
+
+    test('Patient en progression (60 à 149 min) reçoit une recommandation Objectif OMS 150 min', () {
+      final user = User(
+        nom: 'Martin',
+        prenom: 'Claire',
+        email: 'claire.martin@meditrack.fr',
+        dateNaissance: '1985-02-10',
+      );
+
+      final history = [
+        PhysicalActivity(
+          type: 'Marche',
+          durationMinutes: 45,
+          intensity: 'Modérée',
+          activityDate: DateTime(2026, 11, 2),
+        ),
+        PhysicalActivity(
+          type: 'Marche',
+          durationMinutes: 45,
+          intensity: 'Modérée',
+          activityDate: DateTime(2026, 11, 5),
+        ),
+      ];
+
+      const summary = ActivityWeeklySummary(
+        totalMinutes: 90,
+        totalCalories: 380,
+        totalDistanceKm: 7.5,
+        sessionCount: 2,
+      );
+
+      final recs = service.generateRecommendations(
+        user: user,
+        history: history,
+        summary: summary,
+      );
+
+      final primary = recs.first;
+      expect(primary.category, 'Progression OMS');
+      // 150 - 90 = 60 min restantes, clampé à 45 max par séance
+      expect(primary.durationMinutes, 45);
+      expect(primary.intensity, 'Modérée');
+    });
+
+    test('Patient actif (>= 150 min) reçoit une recommandation de maintien et consolidation', () {
+      final user = User(
+        nom: 'Bernard',
+        prenom: 'Alex',
+        email: 'alex.bernard@meditrack.fr',
+      );
+
+      const summary = ActivityWeeklySummary(
+        totalMinutes: 180,
+        totalCalories: 950,
+        totalDistanceKm: 18.0,
+        sessionCount: 3,
+      );
+
+      final recs = service.generateRecommendations(
+        user: user,
+        history: [
+          PhysicalActivity(
+            type: 'Course',
+            durationMinutes: 60,
+            intensity: 'Modérée',
+            activityDate: DateTime(2026, 11, 4),
+          ),
+        ],
+        summary: summary,
+      );
+
+      final primary = recs.first;
+      expect(primary.category, contains('Objectif OMS Atteint'));
+      expect(primary.activityType, 'Course'); // Identifie le sport favori
+    });
+
+    test('Patient avec condition médicale : intensité plafonnée et avis médical obligatoire', () {
+      final user = User(
+        nom: 'Leroy',
+        prenom: 'Marc',
+        email: 'marc.leroy@meditrack.fr',
+        dateNaissance: '1975-08-20',
+        conditionMedicale: 'Hypertension artérielle',
+      );
+
+      const summary = ActivityWeeklySummary(
+        totalMinutes: 160,
+        totalCalories: 800,
+        totalDistanceKm: 12.0,
+        sessionCount: 3,
+      );
+
+      final recs = service.generateRecommendations(
+        user: user,
+        history: [],
+        summary: summary,
+      );
+
+      // Vérifie que chaque recommandation contient la mise en garde médicale
+      for (final rec in recs) {
+        expect(rec.medicalAdvice, isNotNull);
+        expect(rec.medicalAdvice, contains('Hypertension artérielle'));
+        expect(rec.medicalAdvice, contains('médecin traitant'));
+        // L'intensité ne doit pas être 'Élevée' pour un patient avec condition médicale déclarée
+        expect(rec.intensity != 'Élevée', isTrue);
+      }
+    });
+
+    test('Patient senior (>= 65 ans) reçoit un conseil de pratique douce sans impact excessif', () {
+      final senior = User(
+        nom: 'Dubois',
+        prenom: 'Paul',
+        email: 'paul.dubois@meditrack.fr',
+        dateNaissance: '1950-01-01', // > 75 ans
+      );
+
+      const summary = ActivityWeeklySummary(
+        totalMinutes: 100,
+        totalCalories: 400,
+        totalDistanceKm: 6.0,
+        sessionCount: 2,
+      );
+
+      final recs = service.generateRecommendations(
+        user: senior,
+        history: [],
+        summary: summary,
+      );
+
+      final primary = recs.first;
+      expect(primary.medicalAdvice, isNotNull);
+      expect(primary.medicalAdvice, contains('senior'));
+      // Doit proposer une activité sans à-coups (Marche ou Vélo)
+      expect(['Marche', 'Vélo', 'Natation'].contains(primary.activityType), isTrue);
+    });
+
+    test('fetchExternalHealthTips() retourne des conseils médicaux valides même hors-ligne', () async {
+      final tips = await service.fetchExternalHealthTips();
+      expect(tips.isNotEmpty, isTrue);
+      expect(tips.any((t) => t.contains('OMS')), isTrue);
+    });
+  });
+
+  group('Reactivity and thisMonthCount Tests', () {
+    test('ActivityService.changeNotifier notifie correctement ses écouteurs', () {
+      int notificationsReceived = 0;
+      void listener() {
+        notificationsReceived++;
+      }
+
+      ActivityService.changeNotifier.addListener(listener);
+
+      expect(notificationsReceived, 0);
+      ActivityService.changeNotifier.notify();
+      expect(notificationsReceived, 1);
+
+      ActivityService.changeNotifier.notify();
+      expect(notificationsReceived, 2);
+
+      ActivityService.changeNotifier.removeListener(listener);
+      ActivityService.changeNotifier.notify();
+      expect(notificationsReceived, 2); // Ne reçoit plus de notifications après désinscription
+    });
+
+    test('Calcul de thisMonthCount filtre strictement le mois et l\'année en cours', () {
+      final now = DateTime(2026, 11, 10);
+
+      final activities = [
+        // Séances du mois en cours (Novembre 2026) -> DOIVENT être comptées
+        PhysicalActivity(
+          id: 1,
+          type: 'Course',
+          durationMinutes: 30,
+          intensity: 'Modérée',
+          activityDate: DateTime(2026, 11, 2, 8, 30),
+        ),
+        PhysicalActivity(
+          id: 2,
+          type: 'Marche',
+          durationMinutes: 45,
+          intensity: 'Faible',
+          activityDate: DateTime(2026, 11, 28, 17, 0),
+        ),
+        // Séance du mois précédent (Octobre 2026) -> NE DOIT PAS être comptée
+        PhysicalActivity(
+          id: 3,
+          type: 'Vélo',
+          durationMinutes: 60,
+          intensity: 'Modérée',
+          activityDate: DateTime(2026, 10, 31, 23, 59),
+        ),
+        // Séance du mois suivant (Décembre 2026) -> NE DOIT PAS être comptée
+        PhysicalActivity(
+          id: 4,
+          type: 'Natation',
+          durationMinutes: 45,
+          intensity: 'Élevée',
+          activityDate: DateTime(2026, 12, 1, 9, 0),
+        ),
+        // Séance de la même date mais l'année passée (Novembre 2025) -> NE DOIT PAS être comptée
+        PhysicalActivity(
+          id: 5,
+          type: 'Marche',
+          durationMinutes: 30,
+          intensity: 'Faible',
+          activityDate: DateTime(2025, 11, 10, 10, 0),
+        ),
+      ];
+
+      int calculateMonthCount(List<PhysicalActivity> list, DateTime ref) {
+        return list.where((a) {
+          final d = a.activityDate.toLocal();
+          return d.year == ref.year && d.month == ref.month;
+        }).length;
+      }
+
+      final count = calculateMonthCount(activities, now);
+      expect(count, 2); // Exactement les 2 séances de Novembre 2026
+    });
+
+    test('Évolution dynamique de thisMonthCount lors d\'ajouts, modifications et suppressions', () {
+      final now = DateTime(2026, 11, 10);
+      final list = <PhysicalActivity>[
+        PhysicalActivity(
+          id: 1,
+          type: 'Marche',
+          durationMinutes: 30,
+          intensity: 'Faible',
+          activityDate: DateTime(2026, 11, 5),
+        ),
+      ];
+
+      int getCount() => list.where((a) {
+            final d = a.activityDate.toLocal();
+            return d.year == now.year && d.month == now.month;
+          }).length;
+
+      // 1. Initial : 1 séance
+      expect(getCount(), 1);
+
+      // 2. Ajout d'une séance dans le mois en cours
+      final newAct = PhysicalActivity(
+        id: 2,
+        type: 'Course',
+        durationMinutes: 45,
+        intensity: 'Modérée',
+        activityDate: DateTime(2026, 11, 11),
+      );
+      list.add(newAct);
+      expect(getCount(), 2); // Immédiatement 2
+
+      // 3. Modification de la date vers un autre mois (ex: reportée à Décembre)
+      final index = list.indexWhere((a) => a.id == 2);
+      list[index] = newAct.copyWith(activityDate: DateTime(2026, 12, 1));
+      expect(getCount(), 1); // Redescend immédiatement à 1
+
+      // 4. Suppression de la dernière séance du mois
+      list.removeWhere((a) => a.id == 1);
+      expect(getCount(), 0); // Passe immédiatement à 0
     });
   });
 }

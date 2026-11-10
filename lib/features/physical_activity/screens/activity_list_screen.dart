@@ -6,6 +6,7 @@ import '../services/activity_service.dart';
 import '../widgets/activity_card.dart';
 import 'activity_form_screen.dart';
 import 'activity_reminder_screen.dart';
+import 'activity_recommendations_screen.dart';
 import 'sports_agenda_screen.dart';
 
 class ActivityListScreen extends StatefulWidget {
@@ -39,8 +40,21 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   @override
   void initState() {
     super.initState();
+    ActivityService.changeNotifier.addListener(_onActivitiesChanged);
     ActivityReminderService.instance.init();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    ActivityService.changeNotifier.removeListener(_onActivitiesChanged);
+    super.dispose();
+  }
+
+  void _onActivitiesChanged() {
+    if (mounted) {
+      _loadData();
+    }
   }
 
   void _loadData() {
@@ -161,6 +175,18 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded),
+            tooltip: 'Recommandations personnalisées',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ActivityRecommendationsScreen(),
+                ),
+              );
+              _loadData();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
             tooltip: 'Agenda sportif',
             onPressed: () async {
@@ -217,7 +243,10 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
               },
             ),
 
-            // 2. Filtres par type de sport (Barre horizontale de chips)
+            // 2. Bannière d'accès aux Recommandations personnalisées
+            _buildRecommendationsBanner(),
+
+            // 3. Filtres par type de sport (Barre horizontale de chips)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: SizedBox(
@@ -415,6 +444,76 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsBanner() {
+    const kPrimaryGreen = Color(0xFF0B6B5D);
+    const kNavy = Color(0xFF0A2540);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      decoration: BoxDecoration(
+        color: kPrimaryGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kPrimaryGreen.withValues(alpha: 0.25)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ActivityRecommendationsScreen(),
+              ),
+            );
+            _loadData();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: kPrimaryGreen.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.auto_awesome,
+                      color: kPrimaryGreen, size: 18),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recommandations personnalisées',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: kNavy,
+                        ),
+                      ),
+                      SizedBox(height: 1),
+                      Text(
+                        'Activités adaptées à votre profil et votre volume OMS',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: kPrimaryGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    size: 14, color: kPrimaryGreen),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

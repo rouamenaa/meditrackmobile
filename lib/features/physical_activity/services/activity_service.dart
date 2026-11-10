@@ -1,6 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:meditrackmobile/database/database_helper.dart';
 import '../../auth/services/session.dart';
 import '../models/physical_activity.dart';
+
+/// Notificateur réactif pour les modifications des activités physiques dans SQLite
+class ActivityChangeNotifier extends ChangeNotifier {
+  void notify() {
+    notifyListeners();
+  }
+}
 
 /// Synthèse hebdomadaire des activités physiques du patient
 class ActivityWeeklySummary {
@@ -29,6 +37,9 @@ class ActivityWeeklySummary {
 class ActivityService {
   final DatabaseHelper _dbHelper;
 
+  /// Notificateur réactif global : notifie tous les écouteurs dès qu'une modification SQLite survient
+  static final ActivityChangeNotifier changeNotifier = ActivityChangeNotifier();
+
   ActivityService({DatabaseHelper? dbHelper})
       : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
@@ -52,10 +63,15 @@ class ActivityService {
     }
 
     final id = await db.insert(tableName, map);
-    return activity.copyWith(
+    final created = activity.copyWith(
       id: id,
       userId: map['user_id']?.toString(),
     );
+
+    // Notification réactive immédiate de tous les composants abonnés
+    changeNotifier.notify();
+
+    return created;
   }
 
   /// READ : Récupère la liste des activités triées par date décroissante
@@ -159,21 +175,42 @@ class ActivityService {
       throw ArgumentError("Impossible de mettre à jour une activité sans identifiant (id)");
     }
     final db = await _dbHelper.database;
-    return await db.update(
+    final rowsAffected = await db.update(
       tableName,
       activity.toMap(),
       where: 'id = ?',
       whereArgs: [activity.id],
     );
+    if (rowsAffected > 0) {
+      changeNotifier.notify();
+    }
+    return rowsAffected;
   }
 
   /// DELETE : Supprime une activité par son identifiant
   Future<int> delete(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete(
+    final rowsDeleted = await db.delete(
       tableName,
       where: 'id = ?',
       whereArgs: [id],
     );
+    if (rowsDeleted > 0) {
+      changeNotifier.notify();
+    }
+    return rowsDeleted;
+  }
+
+  /// READ : Calcule le nombre exact de séances pour le mois en cours (du 1er au dernier jour du mois)
+  Future<int> getThisMonthCount({
+    String? userId,
+    DateTime? referenceDate,
+  }) async {
+    final activities = await getAll(userId: userId);
+    final ref = referenceDate ?? DateTime.now();
+    return activities.where((a) {
+      final d = a.activityDate.toLocal();
+      return d.year == ref.year && d.month == ref.month;
+    }).length;
   }
 }

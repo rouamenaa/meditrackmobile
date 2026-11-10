@@ -8,12 +8,20 @@ class ActivityFormScreen extends StatefulWidget {
   final PhysicalActivity? activityToEdit;
   final String? userId;
   final DateTime? initialDate;
+  final String? initialType;
+  final int? initialDuration;
+  final String? initialIntensity;
+  final String? initialNotes;
 
   const ActivityFormScreen({
     super.key,
     this.activityToEdit,
     this.userId,
     this.initialDate,
+    this.initialType,
+    this.initialDuration,
+    this.initialIntensity,
+    this.initialNotes,
   });
 
   @override
@@ -73,13 +81,22 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       _caloriesController.text =
           item.caloriesBurned != null ? item.caloriesBurned.toString() : '';
     } else {
-      _selectedType = 'Marche';
-      _selectedIntensity = 'Modérée';
+      _selectedType = widget.initialType != null &&
+              _activityTypes.any((t) => t.$1 == widget.initialType)
+          ? widget.initialType!
+          : 'Marche';
+      _selectedIntensity = widget.initialIntensity != null &&
+              _intensities.any((i) => i.$1 == widget.initialIntensity)
+          ? widget.initialIntensity!
+          : 'Modérée';
       _selectedDate = widget.initialDate ?? DateTime.now();
       _selectedTime = widget.initialDate != null
           ? TimeOfDay.fromDateTime(widget.initialDate!)
           : TimeOfDay.now();
-      _durationController.text = '30';
+      _durationController.text = (widget.initialDuration ?? 30).toString();
+      if (widget.initialNotes != null) {
+        _notesController.text = widget.initialNotes!;
+      }
     }
 
     _recomputeCaloriesEstimate();

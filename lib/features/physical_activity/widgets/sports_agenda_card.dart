@@ -5,7 +5,9 @@ import '../services/activity_service.dart';
 
 /// Carte « Mon agenda sportif » intégrée sur la page d'accueil de MediTrack.
 ///
-/// Respecte fidèlement la charte graphique et la palette de MediTrack.
+/// Réactive : écoute immédiatement [ActivityService.changeNotifier] pour
+/// mettre à jour le compteur du mois en cours dès qu'une séance est ajoutée,
+/// modifiée ou supprimée dans SQLite.
 class SportsAgendaCard extends StatefulWidget {
   final String? userId;
   final VoidCallback onOpen;
@@ -32,7 +34,29 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
   @override
   void initState() {
     super.initState();
+    // Écoute réactive des mutations SQLite (ajout, modification, suppression)
+    ActivityService.changeNotifier.addListener(_onActivitiesChanged);
     _load();
+  }
+
+  @override
+  void didUpdateWidget(SportsAgendaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    ActivityService.changeNotifier.removeListener(_onActivitiesChanged);
+    super.dispose();
+  }
+
+  void _onActivitiesChanged() {
+    if (mounted) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -46,6 +70,13 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _handleOpen() async {
+    widget.onOpen();
+    if (mounted) {
+      await _load();
     }
   }
 
@@ -73,10 +104,11 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
     const kSurfaceContainerLow = Color(0xFFF0F3FF);
 
     final now = DateTime.now();
-    // Séances de ce mois
-    final thisMonthCount = _activities
-        .where((a) => a.activityDate.year == now.year && a.activityDate.month == now.month)
-        .length;
+    // Séances du mois actuel uniquement (filtrage strict sur l'année et le mois locaux)
+    final thisMonthCount = _activities.where((a) {
+      final d = a.activityDate.toLocal();
+      return d.year == now.year && d.month == now.month;
+    }).length;
 
     // Prochaine séance à venir
     final upcomingActivities = _activities
@@ -84,7 +116,8 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
         .toList()
       ..sort((a, b) => a.activityDate.compareTo(b.activityDate));
 
-    final nextActivity = upcomingActivities.isNotEmpty ? upcomingActivities.first : null;
+    final nextActivity =
+        upcomingActivities.isNotEmpty ? upcomingActivities.first : null;
 
     return Container(
       decoration: BoxDecoration(
@@ -102,13 +135,13 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: widget.onOpen,
+          onTap: _handleOpen,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // En-tête : Badge + Titre + Pillule
+                // En-tête : Badge + Titre + Pillule du mois
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -152,7 +185,8 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: kPrimary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(999),
@@ -190,7 +224,8 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                                 color: kPrimary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(nextActivity.icon, size: 18, color: kPrimary),
+                              child: Icon(nextActivity.icon,
+                                  size: 18, color: kPrimary),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -230,15 +265,18 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00C853).withValues(alpha: 0.12),
+                                color: const Color(0xFF00C853)
+                                    .withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.alarm_on_rounded, size: 12, color: Color(0xFF00A844)),
+                                  Icon(Icons.alarm_on_rounded,
+                                      size: 12, color: Color(0xFF00A844)),
                                   SizedBox(width: 2),
                                   Text(
                                     '-5 min',
@@ -281,11 +319,12 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                   height: 46,
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: widget.onOpen,
+                    onPressed: _handleOpen,
                     icon: const Icon(Icons.calendar_month_rounded, size: 18),
                     label: const Text(
                       'Ouvrir mon agenda sportif',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimary,

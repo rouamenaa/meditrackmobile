@@ -64,10 +64,23 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
   @override
   void initState() {
     super.initState();
+    ActivityService.changeNotifier.addListener(_onActivitiesChanged);
     final now = DateTime.now();
     _displayedMonth = DateTime(now.year, now.month, 1);
     _selectedDay = DateTime(now.year, now.month, now.day);
     _loadActivities();
+  }
+
+  @override
+  void dispose() {
+    ActivityService.changeNotifier.removeListener(_onActivitiesChanged);
+    super.dispose();
+  }
+
+  void _onActivitiesChanged() {
+    if (mounted) {
+      _loadActivities();
+    }
   }
 
   Future<void> _loadActivities() async {
