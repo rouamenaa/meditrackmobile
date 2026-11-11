@@ -4,8 +4,14 @@ import 'practitioner.dart';
 
 class Appointment {
   final int? id;
+  final String? remoteId;
   final int practitionerId;
+  final String? doctorUserId;
   final int? facilityId;
+  final String? facilityName;
+  final String? facilityAddress;
+  final String? patientId; // identifiant Mongo de l'utilisateur patient
+  final String? patientName; // nom affiché du patient
   final DateTime startDateTime;
   final int durationMinutes;
   final String reason; // Motif
@@ -20,8 +26,14 @@ class Appointment {
 
   Appointment({
     this.id,
+    this.remoteId,
     required this.practitionerId,
+    this.doctorUserId,
     this.facilityId,
+    this.facilityName,
+    this.facilityAddress,
+    this.patientId,
+    this.patientName,
     required this.startDateTime,
     this.durationMinutes = 30,
     required this.reason,
@@ -43,8 +55,14 @@ class Appointment {
 
   Map<String, dynamic> toMap() => {
     'id': id,
+    'remote_id': remoteId,
     'practitioner_id': practitionerId,
+    'doctor_user_id': doctorUserId,
     'facility_id': facilityId,
+    'facility_name': facilityName,
+    'facility_address': facilityAddress,
+    'patient_id': patientId,
+    'patient_name': patientName,
     'start_date_time': startDateTime.toIso8601String(),
     'duration_minutes': durationMinutes,
     'reason': reason,
@@ -61,8 +79,14 @@ class Appointment {
   }) {
     return Appointment(
       id: map['id'] as int?,
+      remoteId: map['remote_id'] as String?,
       practitionerId: map['practitioner_id'] as int,
+      doctorUserId: map['doctor_user_id'] as String?,
       facilityId: map['facility_id'] as int?,
+      facilityName: map['facility_name'] as String?,
+      facilityAddress: map['facility_address'] as String?,
+      patientId: map['patient_id'] as String?,
+      patientName: map['patient_name'] as String?,
       startDateTime: DateTime.parse(map['start_date_time'] as String),
       durationMinutes: (map['duration_minutes'] as int?) ?? 30,
       reason: (map['reason'] ?? '') as String,
@@ -77,8 +101,14 @@ class Appointment {
 
   Appointment copyWith({
     int? id,
+    String? remoteId,
     int? practitionerId,
+    String? doctorUserId,
     int? facilityId,
+    String? facilityName,
+    String? facilityAddress,
+    String? patientId,
+    String? patientName,
     DateTime? startDateTime,
     int? durationMinutes,
     String? reason,
@@ -91,8 +121,14 @@ class Appointment {
   }) {
     return Appointment(
       id: id ?? this.id,
+      remoteId: remoteId ?? this.remoteId,
       practitionerId: practitionerId ?? this.practitionerId,
+      doctorUserId: doctorUserId ?? this.doctorUserId,
       facilityId: facilityId ?? this.facilityId,
+      facilityName: facilityName ?? this.facilityName,
+      facilityAddress: facilityAddress ?? this.facilityAddress,
+      patientId: patientId ?? this.patientId,
+      patientName: patientName ?? this.patientName,
       startDateTime: startDateTime ?? this.startDateTime,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       reason: reason ?? this.reason,

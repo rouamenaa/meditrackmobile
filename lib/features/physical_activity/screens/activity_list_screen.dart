@@ -62,15 +62,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
+        title: const Text('Confirm deletion'),
         content: Text(
-          'Voulez-vous vraiment supprimer cette séance de ${activity.type.toLowerCase()} du ${activity.activityDate.day}/${activity.activityDate.month}/${activity.activityDate.year} ?',
+          'Are you sure you want to delete this ${activity.type.toLowerCase()} session on ${activity.activityDate.day}/${activity.activityDate.month}/${activity.activityDate.year}?',
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -81,7 +81,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -93,7 +93,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Activité supprimée avec succès'),
+            content: Text('Activity deleted successfully'),
             backgroundColor: Color(0xFF0B6B5D),
             behavior: SnackBarBehavior.floating,
           ),
@@ -103,7 +103,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la suppression : $e'),
+            content: Text('Error while deleting: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -121,7 +121,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text(
-          'Activité physique',
+          'Physical activity',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -130,7 +130,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Actualiser',
+            tooltip: 'Refresh',
             onPressed: _loadActivities,
           ),
         ],
@@ -141,7 +141,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text(
-          'Ajouter une activité',
+          'Add an activity',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
@@ -170,7 +170,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                         size: 56, color: Colors.redAccent),
                     const SizedBox(height: 16),
                     Text(
-                      'Erreur : ${snapshot.error}',
+                      'Error: ${snapshot.error}',
                       textAlign: TextAlign.center,
                       style:
                           const TextStyle(fontSize: 15, color: Colors.black87),
@@ -179,7 +179,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                     ElevatedButton.icon(
                       onPressed: _loadActivities,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Réessayer'),
+                      label: const Text('Retry'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0B6B5D),
                         foregroundColor: Colors.white,
@@ -216,7 +216,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                     ),
                     const SizedBox(height: 24),
                     const Text(
-                      'Aucune activité enregistrée',
+                      'No activity recorded',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -225,7 +225,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Suivez votre forme au quotidien en ajoutant vos séances de marche, course, vélo ou natation.',
+                      'Track your fitness every day by adding your walking, running, cycling or swimming sessions.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -237,7 +237,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                     ElevatedButton.icon(
                       onPressed: _navigateToAdd,
                       icon: const Icon(Icons.add),
-                      label: const Text('Enregistrer ma première activité'),
+                      label: const Text('Record my first activity'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0B6B5D),
                         foregroundColor: Colors.white,

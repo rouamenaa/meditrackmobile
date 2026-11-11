@@ -39,6 +39,12 @@ const userSchema = new mongoose.Schema(
     assurance_nom: String,
     assurance_police: String,
 
+    // Profil professionnel (médecin)
+    specialite: String,
+    rpps_adeli: String,
+    etablissement: String,
+    horaires_consultation: String,
+
     medecins: [
       {
         nom: { type: String, required: true },

@@ -19,24 +19,24 @@ import '../repositories/treatment_repository.dart';
 
 /// Formes du médicament (énum `MedicationForm` du doc §5)
 const List<(String, IconData)> _kForms = [
-  ('Comprimé', Icons.medication_rounded),
-  ('Gélule', Icons.healing_rounded),
-  ('Sirop', Icons.local_drink_rounded),
+  ('Tablet', Icons.medication_rounded),
+  ('Capsule', Icons.healing_rounded),
+  ('Syrup', Icons.local_drink_rounded),
   ('Injection', Icons.vaccines_rounded),
-  ('Gouttes', Icons.water_drop_rounded),
-  ('Crème', Icons.format_paint_rounded),
-  ('Autre', Icons.category_rounded),
+  ('Drops', Icons.water_drop_rounded),
+  ('Cream', Icons.format_paint_rounded),
+  ('Other', Icons.category_rounded),
 ];
 
 /// Unités de dosage proposées (mg / g / ml / UI comme dans le PDF)
-const List<String> _kDosageUnits = ['mg', 'g', 'ml', 'UI'];
+const List<String> _kDosageUnits = ['mg', 'g', 'ml', 'IU'];
 
 const List<String> _kDoseUnits = [
-  'comprimé(s)',
-  'gélule(s)',
-  'cuillère(s)',
+  'tablet(s)',
+  'capsule(s)',
+  'spoon(s)',
   'ml',
-  'goutte(s)',
+  'drop(s)',
   'dose(s)',
   'application(s)',
 ];
@@ -64,7 +64,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   double _dosageNum = 500;
   String _dosageUnit = 'mg';
   int _doseQty = 1;
-  String _doseUnit = 'comprimé(s)';
+  String _doseUnit = 'tablet(s)';
 
   // ---------- horaires choisis à l'horloge
   List<String> _times = [];
@@ -166,9 +166,9 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   // ---------- validateurs ----------
 
   String? _required(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Champ requis' : null;
+      (v == null || v.trim().isEmpty) ? 'Required field' : null;
 
-  String? _validateStart(String? v) => _start == null ? 'Choisissez une date' : null;
+  String? _validateStart(String? v) => _start == null ? 'Choose a date' : null;
 
   // ---------- sélecteur : dates et horaires ----------
 
@@ -179,9 +179,9 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
       initialDate: _start ?? now,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
-      helpText: isStart ? 'Date de début' : 'Date de fin',
-      cancelText: 'Annuler',
-      confirmText: 'Valider',
+      helpText: isStart ? 'Start date' : 'End date',
+      cancelText: 'Cancel',
+      confirmText: 'Confirm',
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -203,9 +203,9 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
-      helpText: 'Horaire de prise',
-      cancelText: 'Annuler',
-      confirmText: 'Valider',
+      helpText: 'Dose time',
+      cancelText: 'Cancel',
+      confirmText: 'Confirm',
     );
     if (t == null || !mounted) return;
     setState(() {
@@ -230,7 +230,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             children: [
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('Forme du médicament',
+                child: Text('Medication form',
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
@@ -269,12 +269,12 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
           _selectedForm = label;
           // unité de dose par défaut selon la forme choisie
           _doseUnit = switch (label) {
-            'Comprimé' => 'comprimé(s)',
-            'Gélule' => 'gélule(s)',
-            'Sirop' => 'cuillère(s)',
-            'Gouttes' => 'goutte(s)',
+            'Tablet' => 'tablet(s)',
+            'Capsule' => 'capsule(s)',
+            'Syrup' => 'spoon(s)',
+            'Drops' => 'drop(s)',
             'Injection' => 'dose(s)',
-            'Crème' => 'application(s)',
+            'Cream' => 'application(s)',
             _ => 'dose(s)',
           };
           _formCtrl.text = label;
@@ -305,10 +305,10 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Dosage du médicament',
+              const Text('Medication dosage',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 4),
-              const Text('Ex : 500 mg — appuyez sur une valeur rapide ou tapez-la.',
+              const Text('Eg: 500 mg — tap a quick value or type it.',
                   style: TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
               const SizedBox(height: 12),
               // valeurs rapides
@@ -356,7 +356,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Quantité',
+                        labelText: 'Quantity',
                         filled: true,
                         fillColor: const Color(0xFFF9FAFB),
                         border: OutlineInputBorder(
@@ -393,7 +393,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                   final v = double.tryParse(textCtl.text.replaceAll(',', '.'));
                   if (v == null || v <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Entrez une valeur valide (ex : 500)')));
+                        content: Text('Enter a valid value (eg: 500)')));
                     return;
                   }
                   Navigator.pop(context);
@@ -403,7 +403,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     _dosageCtrl.text = _dosage!;
                   });
                 },
-                child: const Text('Valider',
+                child: const Text('Confirm',
                     style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
@@ -439,14 +439,14 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Dose par prise',
+                const Text('Dose per intake',
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(
                   _dosage == null
-                      ? 'Combien à chaque prise ?'
-                      : 'Dosage $_dosage — combien à chaque prise ?',
+                      ? 'How many per intake?'
+                      : 'Dosage $_dosage — how many per intake?',
                   style:
                       const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
                 ),
@@ -505,7 +505,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     });
                     Navigator.pop(context);
                   },
-                  child: const Text('Valider',
+                  child: const Text('Confirm',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
@@ -520,17 +520,17 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
 
   String get _planSummary {
     final nPerDay = _times.length;
-    if (nPerDay == 0) return 'Ajoutez au moins un horaire.';
-    if (_start == null) return 'Choisissez une date de début.';
+    if (nPerDay == 0) return 'Add at least one time.';
+    if (_start == null) return 'Choose a start date.';
     final end = _end;
     if (end == null) {
       final total = 60 * nPerDay;
-      return 'Traitement chronique : prises générées pour '
-          'les 60 prochains jours (~$total prises).';
+      return 'Chronic treatment: doses generated for '
+          'the next 60 days (~$total doses).';
     }
     final days = end.difference(_dayStart(_start!)).inDays + 1;
-    if (days <= 0) return 'La date de fin doit être après le début.';
-    return '≈ ${days * nPerDay} prises réparties sur $days jour(s).';
+    if (days <= 0) return 'The end date must be after the start.';
+    return '≈ ${days * nPerDay} doses spread over $days day(s).';
   }
 
   // ---------- sauvegarde ----------
@@ -540,15 +540,15 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     _key.currentState!.save();
 
     if (_start == null) {
-      _snack('Choisissez une date de début.');
+      _snack('Choose a start date.');
       return;
     }
     if (_end != null && _end!.isBefore(_start!)) {
-      _snack('La date de fin doit être après la date de début.');
+      _snack('The end date must be after the start date.');
       return;
     }
     if (_times.isEmpty) {
-      _snack('Ajoutez au moins un horaire de prise.');
+      _snack('Add at least one dose time.');
       return;
     }
 
@@ -572,7 +572,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
         await repo.create(t);
       }
     } catch (e) {
-      if (mounted) _snack('Erreur : $e');
+      if (mounted) _snack('Error: $e');
       return;
     }
     if (mounted) Navigator.pop(context); // liste rechargée par _reload()
@@ -592,7 +592,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         title: Text(
-          _isEdit ? 'Modifier le traitement' : 'Nouveau traitement',
+          _isEdit ? 'Edit treatment' : 'New treatment',
           style: const TextStyle(
               fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
         ),
@@ -602,19 +602,19 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _section('MÉDICAMENT'),
+            _section('MEDICATION'),
             _field(
-              label: 'Nom du médicament *',
-              hint: 'Ex : Amoxicilline',
+              label: 'Medication name *',
+              hint: 'Eg: Amoxicillin',
               initialValue: widget.treatment?.medicationName,
               icon: Icons.medication_rounded,
               validator: _required,
               onSaved: (v) => _medName = v!,
             ),
             _pickerField(
-              label: 'Forme',
+              label: 'Form',
               value: _selectedForm == null ? null : (_selectedForm!),
-              hint: 'Ex : Comprimé',
+              hint: 'Eg: Tablet',
               icon: _iconOf(_selectedForm),
               onTap: _pickForm,
               controller: _formCtrl,
@@ -622,21 +622,21 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             _pickerField(
               label: 'Dosage',
               value: _dosage,
-              hint: 'Ex : 500 mg',
+              hint: 'Eg: 500 mg',
               icon: Icons.scale_rounded,
               onTap: _pickDosage,
               controller: _dosageCtrl,
             ),
             _pickerField(
-              label: 'Dose par prise *',
+              label: 'Dose per intake *',
               value: _dose,
-              hint: 'Ex : 2 comprimés',
+              hint: 'Eg: 2 tablets',
               icon: Icons.water_drop_rounded,
               onTap: _pickDose,
               controller: _doseCtrl,
             ),
 
-            _section('HORAIRES DES PRISES'),
+            _section('DOSE TIMES'),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Wrap(
@@ -655,7 +655,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     ),
                   ActionChip(
                     avatar: const Icon(Icons.add_alarm_rounded, size: 18),
-                    label: const Text('Ajouter un horaire'),
+                    label: const Text('Add a time'),
                     backgroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xFF0B6B5D)),
                     onPressed: _addTime,
@@ -665,32 +665,32 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             ),
             _infoCard(
               icon: Icons.query_stats_rounded,
-              title: 'Fréquence : ${_times.length} prise(s) par jour',
-              subtitle: 'Les prises sont planifiées automatiquement chaque '
-                  'jour à ces horaires (modifiables après).',
+              title: 'Frequency: ${_times.length} dose(s) per day',
+              subtitle: 'Doses are scheduled automatically every '
+                  'day at these times (editable later).',
             ),
 
-            _section('PÉRIODE DU TRAITEMENT'),
+            _section('TREATMENT PERIOD'),
             _dateField(
               controller: _startCtl,
-              labelText: 'Date de début *',
+              labelText: 'Start date *',
               icon: Icons.event_available_rounded,
               validator: _validateStart,
               onTap: () => _pickDate(true),
             ),
             _dateField(
               controller: _endCtl,
-              labelText: 'Date de fin (vide = chronique)',
+              labelText: 'End date (empty = chronic)',
               icon: Icons.event_busy_rounded,
               onTap: () => _pickDate(false),
               suffix: _end == null
                   ? IconButton(
-                      tooltip: 'Choisir une date de fin',
+                      tooltip: 'Choose an end date',
                       icon: const Icon(Icons.calendar_today_rounded, size: 20),
                       onPressed: () => _pickDate(false),
                     )
                   : IconButton(
-                      tooltip: 'Retirer (traitement chronique)',
+                      tooltip: 'Remove (chronic treatment)',
                       icon: const Icon(Icons.close_rounded, size: 20),
                       onPressed: () => setState(() {
                         _end = null;
@@ -700,7 +700,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             ),
             _infoCard(
               icon: Icons.summarize_rounded,
-              title: 'Résumé du plan',
+              title: 'Plan summary',
               subtitle: _planSummary,
             ),
 
@@ -715,13 +715,13 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     borderRadius: BorderRadius.circular(14)),
               ),
               icon: const Icon(Icons.check_rounded),
-              label: const Text('Enregistrer',
+              label: const Text('Save',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ),
             const SizedBox(height: 8),
             const Center(
               child: Text(
-                'Historique des prises déjà passées : jamais modifié.',
+                'History of past doses: never modified.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
               ),

@@ -45,7 +45,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _loading = false;
         _step = 1;
       });
-      _snack('Si un compte existe pour cet email, un code a été envoyé.');
+      _snack('If an account exists for this email, a code has been sent.');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -60,7 +60,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await _repo.resetPassword(
           _emailCtrl.text, _codeCtrl.text, _passwordCtrl.text);
       if (!mounted) return;
-      _snack('Mot de passe modifié. Connecte-toi avec le nouveau mot de passe.');
+      _snack('Password changed. Log in with your new password.');
       Navigator.of(context).pop();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -103,14 +103,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const Icon(Icons.lock_reset, size: 56, color: kGreen),
               const SizedBox(height: 16),
-              const Text('Mot de passe oublié',
+              const Text('Forgot Password',
                   style: TextStyle(
                       fontSize: 28, fontWeight: FontWeight.w800, color: kNavy)),
               const SizedBox(height: 8),
               Text(
                 _step == 0
-                    ? 'Entre ton adresse email : nous t\'enverrons un code de réinitialisation.'
-                    : 'Saisis le code reçu par email et choisis un nouveau mot de passe.',
+                    ? 'Enter your email address: we\'ll send you a reset code.'
+                    : 'Enter the code you received by email and choose a new password.',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 24),
@@ -133,9 +133,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             decoration: _decoration('Email', Icons.mail_outline),
             validator: (v) {
               final value = v?.trim() ?? '';
-              if (value.isEmpty) return 'Email obligatoire';
+              if (value.isEmpty) return 'Email is required';
               if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-                return 'Email invalide';
+                return 'Invalid email';
               }
               return null;
             },
@@ -158,7 +158,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       height: 22,
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: Colors.white))
-                  : const Text('Envoyer le code',
+                  : const Text('Send code',
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ),
@@ -178,11 +178,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             controller: _codeCtrl,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: _decoration('Code reçu par email', Icons.pin_outlined),
+            decoration: _decoration('Code received by email', Icons.pin_outlined),
             validator: (v) {
               final value = v?.trim() ?? '';
-              if (value.isEmpty) return 'Code obligatoire';
-              if (value.length != 6) return 'Le code comporte 6 chiffres';
+              if (value.isEmpty) return 'Code is required';
+              if (value.length != 6) return 'The code has 6 digits';
               return null;
             },
           ),
@@ -191,7 +191,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             controller: _passwordCtrl,
             obscureText: _hidePassword,
             decoration: _decoration(
-              'Nouveau mot de passe',
+              'New Password',
               Icons.lock_outline,
               suffix: IconButton(
                 icon: Icon(_hidePassword
@@ -201,8 +201,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Mot de passe obligatoire';
-              if (v.length < 6) return 'Minimum 6 caractères';
+              if (v == null || v.isEmpty) return 'Password is required';
+              if (v.length < 6) return 'Minimum 6 characters';
               return null;
             },
           ),
@@ -211,9 +211,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             controller: _confirmCtrl,
             obscureText: _hidePassword,
             decoration:
-                _decoration('Confirmer le mot de passe', Icons.lock_outline),
+                _decoration('Confirm Password', Icons.lock_outline),
             validator: (v) =>
-                v != _passwordCtrl.text ? 'Les mots de passe ne correspondent pas' : null,
+                v != _passwordCtrl.text ? 'Passwords do not match' : null,
           ),
           const SizedBox(height: 24),
           SizedBox(
@@ -233,7 +233,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       height: 22,
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: Colors.white))
-                  : const Text('Réinitialiser le mot de passe',
+                  : const Text('Reset password',
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ),
@@ -242,7 +242,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           Center(
             child: TextButton(
               onPressed: _loading ? null : _sendCode,
-              child: const Text('Renvoyer le code',
+              child: const Text('Resend code',
                   style: TextStyle(color: kGreen, fontWeight: FontWeight.w700)),
             ),
           ),

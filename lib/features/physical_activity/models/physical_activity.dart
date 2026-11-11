@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 class PhysicalActivity {
   final int? id;
   final int? userId;
-  final String type; // Marche, Course, Vélo, Natation, Autre
+  final String type; // Walking, Running, Cycling, Swimming, Other
   final int durationMinutes;
   final double? distanceKm;
-  final String intensity; // Faible, Modérée, Élevée
+  final String intensity; // Low, Moderate, High
   final DateTime activityDate;
   final String? notes;
   final int? caloriesBurned; // Facultatif (saisi par l'utilisateur s'il le souhaite)
@@ -26,14 +26,14 @@ class PhysicalActivity {
   /// Icône Material adaptée au type d'activité
   IconData get icon {
     switch (type.trim().toLowerCase()) {
-      case 'marche':
+      case 'walking':
         return Icons.directions_walk_rounded;
-      case 'course':
+      case 'running':
         return Icons.directions_run_rounded;
-      case 'vélo':
-      case 'velo':
+      case 'cycling':
+      case 'bike':
         return Icons.directions_bike_rounded;
-      case 'natation':
+      case 'swimming':
         return Icons.pool_rounded;
       default:
         return Icons.fitness_center_rounded;

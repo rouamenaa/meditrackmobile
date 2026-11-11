@@ -32,17 +32,17 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
   bool _isSaving = false;
 
   final List<String> _activityTypes = const [
-    'Marche',
-    'Course',
-    'Vélo',
-    'Natation',
-    'Autre',
+    'Walking',
+    'Running',
+    'Cycling',
+    'Swimming',
+    'Other',
   ];
 
   final List<String> _intensities = const [
-    'Faible',
-    'Modérée',
-    'Élevée',
+    'Low',
+    'Moderate',
+    'High',
   ];
 
   bool get _isEditMode => widget.activityToEdit != null;
@@ -53,10 +53,10 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     final item = widget.activityToEdit;
 
     if (item != null) {
-      _selectedType = _activityTypes.contains(item.type) ? item.type : 'Autre';
+      _selectedType = _activityTypes.contains(item.type) ? item.type : 'Other';
       _selectedIntensity = _intensities.contains(item.intensity)
           ? item.intensity
-          : 'Modérée';
+          : 'Moderate';
       _selectedDate = item.activityDate;
       _durationController.text = item.durationMinutes.toString();
       _distanceController.text =
@@ -65,8 +65,8 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       _caloriesController.text =
           item.caloriesBurned != null ? item.caloriesBurned.toString() : '';
     } else {
-      _selectedType = 'Course';
-      _selectedIntensity = 'Modérée';
+      _selectedType = 'Running';
+      _selectedIntensity = 'Moderate';
       _selectedDate = DateTime.now();
     }
   }
@@ -139,8 +139,8 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEditMode
-              ? 'Activité modifiée avec succès'
-              : 'Activité ajoutée avec succès'),
+              ? 'Activity updated successfully'
+              : 'Activity added successfully'),
           backgroundColor: const Color(0xFF0B6B5D),
           behavior: SnackBarBehavior.floating,
         ),
@@ -152,7 +152,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de l\'enregistrement : $e'),
+          content: Text('Error while saving: $e'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -170,7 +170,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isEditMode ? 'Modifier l\'activité' : 'Nouvelle activité',
+          _isEditMode ? 'Edit activity' : 'New activity',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -188,7 +188,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
               children: [
                 // 1. Type d'activité (obligatoire)
                 const Text(
-                  'Type d\'activité *',
+                  'Activity type *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -199,7 +199,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedType,
                   decoration: _inputDecoration(
-                    hint: 'Sélectionnez une activité',
+                    hint: 'Select an activity',
                     icon: Icons.sports_score_rounded,
                   ),
                   items: _activityTypes.map((type) {
@@ -218,7 +218,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 2. Date de l'activité (obligatoire)
                 const Text(
-                  'Date de l\'activité *',
+                  'Activity date *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -260,7 +260,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 3. Durée en minutes (obligatoire, entier > 0)
                 const Text(
-                  'Durée (en minutes) *',
+                  'Duration (in minutes) *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -272,17 +272,17 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   controller: _durationController,
                   keyboardType: TextInputType.number,
                   decoration: _inputDecoration(
-                    hint: 'Ex : 45',
+                    hint: 'E.g.: 45',
                     icon: Icons.timer_outlined,
                     suffixText: 'min',
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'La durée est obligatoire';
+                      return 'Duration is required';
                     }
                     final parsed = int.tryParse(value.trim());
                     if (parsed == null || parsed <= 0) {
-                      return 'Veuillez saisir un nombre entier supérieur à 0';
+                      return 'Please enter an integer greater than 0';
                     }
                     return null;
                   },
@@ -291,7 +291,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 4. Distance en kilomètres (facultative)
                 const Text(
-                  'Distance (en km) — Facultatif',
+                  'Distance (in km) — Optional',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -304,7 +304,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: _inputDecoration(
-                    hint: 'Ex : 5.5',
+                    hint: 'E.g.: 5.5',
                     icon: Icons.route_outlined,
                     suffixText: 'km',
                   ),
@@ -313,7 +313,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     final parsed =
                         double.tryParse(value.trim().replaceAll(',', '.'));
                     if (parsed == null || parsed < 0) {
-                      return 'Veuillez saisir une distance valide positive';
+                      return 'Please enter a valid positive distance';
                     }
                     return null;
                   },
@@ -322,7 +322,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 5. Intensité (obligatoire : Faible, Modérée, Élevée)
                 const Text(
-                  'Intensité *',
+                  'Intensity *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -333,7 +333,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedIntensity,
                   decoration: _inputDecoration(
-                    hint: 'Sélectionnez une intensité',
+                    hint: 'Select an intensity',
                     icon: Icons.speed_rounded,
                   ),
                   items: _intensities.map((intensity) {
@@ -352,7 +352,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 6. Calories (facultatif, saisie libre par l'utilisateur)
                 const Text(
-                  'Calories brûlées (kcal) — Facultatif',
+                  'Calories burned (kcal) — Optional',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -364,7 +364,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   controller: _caloriesController,
                   keyboardType: TextInputType.number,
                   decoration: _inputDecoration(
-                    hint: 'Ex : 250',
+                    hint: 'E.g.: 250',
                     icon: Icons.local_fire_department_outlined,
                     suffixText: 'kcal',
                   ),
@@ -372,7 +372,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     if (value == null || value.trim().isEmpty) return null;
                     final parsed = int.tryParse(value.trim());
                     if (parsed == null || parsed < 0) {
-                      return 'Veuillez saisir un nombre entier de calories valide';
+                      return 'Please enter a valid integer number of calories';
                     }
                     return null;
                   },
@@ -381,7 +381,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 7. Notes (facultatives)
                 const Text(
-                  'Notes / Remarques — Facultatif',
+                  'Notes / Remarks — Optional',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -393,7 +393,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   controller: _notesController,
                   maxLines: 3,
                   decoration: _inputDecoration(
-                    hint: 'Sensations, météo, parcours...',
+                    hint: 'Feelings, weather, route...',
                     icon: Icons.edit_note_rounded,
                   ),
                 ),
@@ -422,8 +422,8 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                         )
                       : Text(
                           _isEditMode
-                              ? 'Enregistrer les modifications'
-                              : 'Ajouter l\'activité',
+                              ? 'Save changes'
+                              : 'Add activity',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -439,7 +439,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     foregroundColor: Colors.grey.shade700,
                   ),
                   child: const Text(
-                    'Annuler',
+                    'Cancel',
                     style: TextStyle(fontSize: 15),
                   ),
                 ),

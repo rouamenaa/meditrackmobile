@@ -15,13 +15,11 @@ class ActivityCard extends StatelessWidget {
 
   Color _getIntensityColor(String intensity) {
     switch (intensity.trim().toLowerCase()) {
-      case 'faible':
+      case 'low':
         return const Color(0xFF2E7D32); // Vert
-      case 'élevée':
-      case 'elevee':
+      case 'high':
         return const Color(0xFFC62828); // Rouge
-      case 'modérée':
-      case 'moderee':
+      case 'moderate':
       default:
         return const Color(0xFFEF6C00); // Orange
     }
@@ -131,7 +129,7 @@ class ActivityCard extends StatelessWidget {
                           Icon(Icons.edit_outlined,
                               size: 20, color: kPrimaryGreen),
                           SizedBox(width: 10),
-                          Text('Modifier'),
+                          Text('Edit'),
                         ],
                       ),
                     ),
@@ -142,7 +140,7 @@ class ActivityCard extends StatelessWidget {
                           Icon(Icons.delete_outline,
                               size: 20, color: Colors.redAccent),
                           SizedBox(width: 10),
-                          Text('Supprimer',
+                          Text('Delete',
                               style: TextStyle(color: Colors.redAccent)),
                         ],
                       ),

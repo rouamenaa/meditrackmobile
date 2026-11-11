@@ -81,10 +81,10 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
       status == IntakeStatus.taken
-          ? 'Prise validée ✓'
+          ? 'Dose confirmed ✓'
           : status == IntakeStatus.skipped
-              ? 'Prise ignorée'
-              : 'Statut mis à jour',
+              ? 'Dose skipped'
+              : 'Status updated',
     )));
   }
 
@@ -93,18 +93,18 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Arrêter ce traitement ?'),
+        title: const Text('Stop this treatment?'),
         content: Text(
-            '« ${t.medicationName} » passera en statut "Arrêté".\n'
-            'Les prises déjà passées restent dans l\'historique ; '
-            'les prises à venir sont annulées.'),
+            '« ${t.medicationName} » will be set to "Stopped" status.\n'
+            'Past doses remain in the history; '
+            'upcoming doses are cancelled.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: const Text('Non')),
+              child: const Text('No')),
           FilledButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('Oui, arrêter')),
+              child: const Text('Yes, stop')),
         ],
       ),
     );
@@ -119,17 +119,17 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Supprimer ?'),
+        title: const Text('Delete?'),
         content: Text(
-            '« ${t.medicationName} » et TOUT son historique de prises seront '
-            'supprimés définitivement.'),
+            '« ${t.medicationName} » and ALL its dose history will be '
+            'permanently deleted.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(c, false), child: const Text('Non')),
+              onPressed: () => Navigator.pop(c, false), child: const Text('No')),
           FilledButton(
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('Supprimer')),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -157,19 +157,19 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded, size: 20),
-            tooltip: 'Modifier',
+            tooltip: 'Edit',
             onPressed: _edit, // attend la fin du form PUIS rafraîchit
           ),
           if (canStop)
             IconButton(
               icon: const Icon(Icons.stop_circle_outlined, size: 22),
-              tooltip: 'Arrêter',
+              tooltip: 'Stop',
               onPressed: _stopTreatment,
             ),
           if (!canStop)
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded, size: 20),
-              tooltip: 'Supprimer',
+              tooltip: 'Delete',
               onPressed: _deleteTreatment, // toujours avec confirmation
             ),
         ],
@@ -181,11 +181,11 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF0B6B5D)));
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erreur : ${snapshot.error}'));
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
           final logs = snapshot.data!;
           if (logs.isEmpty) {
-            return const Center(child: Text('Aucun élément'));
+            return const Center(child: Text('No items'));
           }
           return _buildGroupedList(t, logs);
         },
@@ -264,18 +264,18 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
           const SizedBox(height: 4),
           Text(
             t.isChronic
-                ? 'Traitement chronique (sans date de fin)'
+                ? 'Chronic treatment (no end date)'
                 : '${fmtDate(t.startDate)} – ${fmtDate(t.endDate!)}',
             style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              const Text('Progression',
+              const Text('Progress',
                   style: TextStyle(color: Color(0xFF6B7280), fontSize: 11)),
               const Spacer(),
               Text(
-                'Prises prises : $taken sur ${pastLogs.length}',
+                'Doses taken: $taken of ${pastLogs.length}',
                 style: const TextStyle(
                     color: Color(0xFF0B6B5D),
                     fontWeight: FontWeight.w700,
@@ -300,9 +300,9 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
   Widget _statusChip(TreatmentStatus s) {
     final (label, bg, fg) = switch (s) {
       TreatmentStatus.active => ('Active', const Color(0xFFDCFCE7), const Color(0xFF12B76A)),
-      TreatmentStatus.planned => ('Planifié', const Color(0xFFEDE9FE), const Color(0xFF7C3AED)),
-      TreatmentStatus.stopped => ('Arrêté', const Color(0xFFFCE7F3), const Color(0xFFDB2777)),
-      TreatmentStatus.completed => ('Terminé', const Color(0xFFDBEAFE), const Color(0xFF2563EB)),
+      TreatmentStatus.planned => ('Planned', const Color(0xFFEDE9FE), const Color(0xFF7C3AED)),
+      TreatmentStatus.stopped => ('Stopped', const Color(0xFFFCE7F3), const Color(0xFFDB2777)),
+      TreatmentStatus.completed => ('Completed', const Color(0xFFDBEAFE), const Color(0xFF2563EB)),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -348,12 +348,12 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
                   ),
                   Text(
                     log.status == IntakeStatus.taken
-                        ? 'Pris${log.takenAt != null ? ' à ${fmtTime(log.takenAt!)}' : ''}'
+                        ? 'Taken${log.takenAt != null ? ' at ${fmtTime(log.takenAt!)}' : ''}'
                         : log.status == IntakeStatus.skipped
-                            ? 'Ignorée'
+                            ? 'Skipped'
                             : log.status == IntakeStatus.missed
-                                ? 'Manquée'
-                                : 'À prendre',
+                                ? 'Missed'
+                                : 'To take',
                     style: TextStyle(
                         color: _logColor(log.status).fg,
                         fontSize: 12,
@@ -364,11 +364,11 @@ class _TreatmentHistoryScreenState extends State<TreatmentHistoryScreen> {
             ),
             if (canEdit) ...[
               IconButton(
-                tooltip: 'Pris',
+                tooltip: 'Taken',
                 icon: const Icon(Icons.check_rounded, color: Color(0xFF12B76A)), onPressed: () => _mark(log, IntakeStatus.taken),
               ),
               IconButton(
-                tooltip: 'Ignorée',
+                tooltip: 'Skipped',
                 icon: const Icon(Icons.close_rounded, color: Color(0xFFDB2777)),
                 onPressed: () => _mark(log, IntakeStatus.skipped),
               ),

@@ -29,6 +29,13 @@ class User {
   final String? contactUrgenceTel;
   final String? assuranceNom;
   final String? assurancePolice;
+
+  // Profil professionnel (médecin)
+  final String? specialite;
+  final String? rppsAdeli;
+  final String? etablissement;
+  final String? horairesConsultation;
+
   final String? createdAt;
   final List<Medecin> medecins;
 
@@ -55,6 +62,10 @@ class User {
     this.contactUrgenceTel,
     this.assuranceNom,
     this.assurancePolice,
+    this.specialite,
+    this.rppsAdeli,
+    this.etablissement,
+    this.horairesConsultation,
     this.createdAt,
     this.medecins = const [],
   });
@@ -62,9 +73,23 @@ class User {
   // ---------- Valeurs calculées (utiles pour tous les modules) ----------
   String get fullName => '$prenom $nom';
 
-  bool get isMedecin => role == 'medecin';
+  bool get isMedecin {
+    final normalized = role.trim().toLowerCase();
+    return normalized == 'medecin' ||
+        normalized == 'médecin' ||
+        normalized == 'doctor';
+  }
 
-  String get roleLabel => isMedecin ? 'Médecin' : 'Patient';
+  bool get isPatient => role != 'medecin';
+
+  /// Vrai si le médecin a complété au moins une information professionnelle.
+  bool get hasProfessionalInfo =>
+      (specialite != null && specialite!.isNotEmpty) ||
+      (rppsAdeli != null && rppsAdeli!.isNotEmpty) ||
+      (etablissement != null && etablissement!.isNotEmpty) ||
+      (horairesConsultation != null && horairesConsultation!.isNotEmpty);
+
+  String get roleLabel => isMedecin ? 'Doctor' : 'Patient';
 
   String get meditrackId {
     final s = id ?? '0000';
@@ -105,6 +130,10 @@ class User {
     contactUrgenceTel: j['contact_urgence_tel'] as String?,
     assuranceNom: j['assurance_nom'] as String?,
     assurancePolice: j['assurance_police'] as String?,
+    specialite: j['specialite'] as String?,
+    rppsAdeli: j['rpps_adeli'] as String?,
+    etablissement: j['etablissement'] as String?,
+    horairesConsultation: j['horaires_consultation'] as String?,
     createdAt: j['createdAt'] as String?,
     medecins: ((j['medecins'] as List?) ?? [])
         .map((m) => Medecin.fromJson(Map<String, dynamic>.from(m)))
@@ -135,6 +164,10 @@ class User {
     'contact_urgence_tel': contactUrgenceTel,
     'assurance_nom': assuranceNom,
     'assurance_police': assurancePolice,
+    'specialite': specialite,
+    'rpps_adeli': rppsAdeli,
+    'etablissement': etablissement,
+    'horaires_consultation': horairesConsultation,
     'createdAt': createdAt,
     'medecins': medecins.map((m) => m.toJson()).toList(),
   };

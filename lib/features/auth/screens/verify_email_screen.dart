@@ -31,7 +31,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   Future<void> _confirm() async {
     final code = _codeCtrl.text.trim();
     if (code.length != 6) {
-      _snack('Saisis le code à 6 chiffres reçu par email');
+      _snack('Enter the 6-digit code you received by email');
       return;
     }
     setState(() => _loading = true);
@@ -54,7 +54,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     try {
       await _repo.sendVerificationCode(widget.email);
       if (!mounted) return;
-      _snack('Un nouveau code a été envoyé à ${widget.email}');
+      _snack('A new code has been sent to ${widget.email}');
     } on ApiException catch (e) {
       if (!mounted) return;
       _snack(e.message);
@@ -83,13 +83,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             children: [
               const Icon(Icons.mark_email_read_outlined, size: 56, color: kGreen),
               const SizedBox(height: 16),
-              const Text('Vérifie ton email',
+              const Text('Verify your email',
                   style: TextStyle(
                       fontSize: 28, fontWeight: FontWeight.w800, color: kNavy)),
               const SizedBox(height: 8),
               Text(
-                'Nous avons envoyé un code à 6 chiffres à ${widget.email}. '
-                'Saisis-le pour activer ton compte.',
+                'We sent a 6-digit code to ${widget.email}. '
+                'Enter it to activate your account.',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               if (widget.warning != null) ...[
@@ -154,7 +154,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               strokeWidth: 2.5, color: Colors.white))
-                      : const Text('Vérifier mon compte',
+                      : const Text('Verify my account',
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 15)),
                 ),
@@ -164,7 +164,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 child: TextButton(
                   onPressed: _resending ? null : _resend,
                   child: Text(
-                    _resending ? 'Envoi en cours…' : 'Renvoyer le code',
+                    _resending ? 'Sending…' : 'Resend code',
                     style: const TextStyle(
                         color: kGreen, fontWeight: FontWeight.w700),
                   ),

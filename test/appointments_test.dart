@@ -6,14 +6,14 @@ import 'package:meditrackmobile/features/appointments/models/practitioner.dart';
 
 void main() {
   group('AppointmentStatus Enum Tests', () {
-    test('French labels should match expected values', () {
-      expect(AppointmentStatus.SCHEDULED.labelFr, 'Programmé');
-      expect(AppointmentStatus.CONFIRMED.labelFr, 'Confirmé');
-      expect(AppointmentStatus.RESCHEDULED.labelFr, 'Reporté');
-      expect(AppointmentStatus.CANCELLED_BY_PATIENT.labelFr, 'Annulé par patient');
-      expect(AppointmentStatus.CANCELLED_BY_PRACTITIONER.labelFr, 'Annulé par praticien');
-      expect(AppointmentStatus.COMPLETED.labelFr, 'Terminé');
-      expect(AppointmentStatus.MISSED.labelFr, 'Manqué');
+    test('English labels should match expected values', () {
+      expect(AppointmentStatus.SCHEDULED.labelFr, 'Scheduled');
+      expect(AppointmentStatus.CONFIRMED.labelFr, 'Confirmed');
+      expect(AppointmentStatus.RESCHEDULED.labelFr, 'Rescheduled');
+      expect(AppointmentStatus.CANCELLED_BY_PATIENT.labelFr, 'Cancelled by patient');
+      expect(AppointmentStatus.CANCELLED_BY_PRACTITIONER.labelFr, 'Cancelled by practitioner');
+      expect(AppointmentStatus.COMPLETED.labelFr, 'Completed');
+      expect(AppointmentStatus.MISSED.labelFr, 'Missed');
     });
 
     test('fromString should handle casing and fallback safely', () {
@@ -35,6 +35,7 @@ void main() {
         rppsAdeli: '10003456789',
         phone: '+216 71 234 567',
         email: 'sami@meditrack.tn',
+        remoteUserId: 'mongo-doctor-1',
       );
 
       final map = practitioner.toMap();
@@ -42,11 +43,13 @@ void main() {
       expect(map['last_name'], 'Ben Salah');
       expect(map['first_name'], 'Sami');
       expect(map['specialty'], 'Cardiologie');
+      expect(map['remote_user_id'], 'mongo-doctor-1');
 
       final reconstructed = Practitioner.fromMap(map);
       expect(reconstructed.id, 1);
       expect(reconstructed.fullName, 'Dr Sami Ben Salah');
       expect(reconstructed.specialty, 'Cardiologie');
+      expect(reconstructed.remoteUserId, 'mongo-doctor-1');
     });
 
     test('copyWith updates fields correctly', () {
@@ -151,6 +154,30 @@ void main() {
 
       expect(appointment.isTeleconsultation, true);
       expect(appointment.videoUrl, 'https://meet.jit.si/meditrack-123');
+    });
+
+    test('Patient fields are serialized for role-based filtering', () {
+      final appointment = Appointment(
+        practitionerId: 1,
+        remoteId: 'mongo-appointment-1',
+        doctorUserId: 'mongo-doctor-1',
+        patientId: 'user-42',
+        patientName: 'Amine Bouazizi',
+        startDateTime: DateTime(2026, 12, 1, 9, 0),
+        reason: 'Checkup',
+      );
+
+      final map = appointment.toMap();
+      expect(map['patient_id'], 'user-42');
+      expect(map['patient_name'], 'Amine Bouazizi');
+      expect(map['remote_id'], 'mongo-appointment-1');
+      expect(map['doctor_user_id'], 'mongo-doctor-1');
+
+      final reconstructed = Appointment.fromMap(map);
+      expect(reconstructed.patientId, 'user-42');
+      expect(reconstructed.patientName, 'Amine Bouazizi');
+      expect(reconstructed.remoteId, 'mongo-appointment-1');
+      expect(reconstructed.doctorUserId, 'mongo-doctor-1');
     });
   });
 }

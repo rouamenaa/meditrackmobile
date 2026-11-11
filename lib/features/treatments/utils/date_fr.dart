@@ -3,28 +3,28 @@
 library;
 
 const _mois = [
-  'janv.',
-  'févr.',
-  'mars',
-  'avr.',
-  'mai',
-  'juin',
-  'juil.',
-  'août',
-  'sept.',
-  'oct.',
-  'nov.',
-  'déc.',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 const _jours = [
-  'Lundi',
-  'Mardi',
-  'Mercredi',
-  'Jeudi',
-  'Vendredi',
-  'Samedi',
-  'Dimanche',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];
 
 /// "05/09/2026"
@@ -44,14 +44,14 @@ String fmtProchainePrise(DateTime? next, DateTime now) {
   if (next == null) return '—';
   final jour = DateTime(next.year, next.month, next.day);
   final auj = DateTime(now.year, now.month, now.day);
-  if (jour == auj) return "Aujourd'hui à ${fmtTime(next)}";
+  if (jour == auj) return "Today at ${fmtTime(next)}";
   if (jour == auj.add(const Duration(days: 1))) {
-    return 'Demain à ${fmtTime(next)}';
+    return 'Tomorrow at ${fmtTime(next)}';
   }
-  return '${fmtDateLettres(next)} à ${fmtTime(next)}';
+  return '${fmtDateLettres(next)} at ${fmtTime(next)}';
 }
 
 /// "01/09/2026 – 30/09/2026" ou "Depuis 01/09/2026 · chronique"
 String fmtPeriode(DateTime start, DateTime? end) => end == null
-    ? 'Depuis ${fmtDate(start)} · chronique'
+    ? 'Since ${fmtDate(start)} · chronic'
     : '${fmtDate(start)} – ${fmtDate(end)}';
