@@ -14,29 +14,32 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../medications/models/medication.dart';
+import '../../medications/repositories/medication_repository.dart';
 import '../models/treatment.dart';
 import '../repositories/treatment_repository.dart';
+import '../services/drug_info_service.dart';
 
 /// Formes du médicament (énum `MedicationForm` du doc §5)
 const List<(String, IconData)> _kForms = [
-  ('Tablet', Icons.medication_rounded),
-  ('Capsule', Icons.healing_rounded),
-  ('Syrup', Icons.local_drink_rounded),
+  ('Comprimé', Icons.medication_rounded),
+  ('Gélule', Icons.healing_rounded),
+  ('Sirop', Icons.local_drink_rounded),
   ('Injection', Icons.vaccines_rounded),
-  ('Drops', Icons.water_drop_rounded),
-  ('Cream', Icons.format_paint_rounded),
-  ('Other', Icons.category_rounded),
+  ('Gouttes', Icons.water_drop_rounded),
+  ('Crème', Icons.format_paint_rounded),
+  ('Autre', Icons.category_rounded),
 ];
 
 /// Unités de dosage proposées (mg / g / ml / UI comme dans le PDF)
-const List<String> _kDosageUnits = ['mg', 'g', 'ml', 'IU'];
+const List<String> _kDosageUnits = ['mg', 'g', 'ml', 'UI'];
 
 const List<String> _kDoseUnits = [
-  'tablet(s)',
-  'capsule(s)',
-  'spoon(s)',
+  'comprimé(s)',
+  'gélule(s)',
+  'cuillère(s)',
   'ml',
-  'drop(s)',
+  'goutte(s)',
   'dose(s)',
   'application(s)',
 ];
@@ -53,8 +56,16 @@ class TreatmentFormScreen extends StatefulWidget {
 class _TreatmentFormState extends State<TreatmentFormScreen> {
   final _key = GlobalKey<FormState>();
 
+  // ---------- lien optionnel vers le catalogue Médicaments ----------
+  int? _medicationId;
+  final _medRepo = MedicationRepository();
+
   // ---------- champs texte (validate() + save(), comme en cours)
   String _medName = '';
+  final _medNameCtrl = TextEditingController();
+  bool _drugLookupLoading = false;
+  DrugInfo? _drugInfo;
+  String? _drugLookupMsg;
 
   // ---------- forme / dosage / dose (choisis via bottom-sheets)
   String? _selectedForm; // ex : "Comprimé"
@@ -64,7 +75,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   double _dosageNum = 500;
   String _dosageUnit = 'mg';
   int _doseQty = 1;
-  String _doseUnit = 'tablet(s)';
+  String _doseUnit = 'comprimé(s)';
 
   // ---------- horaires choisis à l'horloge
   List<String> _times = [];
@@ -85,6 +96,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     super.initState();
     final t = widget.treatment;
     if (t != null) {
+      _medicationId = t.medicationId;
+      _medNameCtrl.text = t.medicationName;
       _start = t.startDate;
       _startCtl.text = _fmtDate(t.startDate);
       if (t.endDate != null) {
@@ -112,11 +125,12 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   /// Pré-remplit forme + dosage + dose à partir des chaînes stockées
   void _prefillMedication(Treatment t) {
     // dosage "500 mg" ?
-    final mDosage =
-        RegExp(r'^\s*(\d+(?:[.,]\d+)?)\s*([a-zA-Zé]+)\s*$').firstMatch(t.medicationDosage ?? '');
+    final mDosage = RegExp(r'^\s*(\d+(?:[.,]\d+)?)\s*([a-zA-Zé]+)\s*$')
+        .firstMatch(t.medicationDosage ?? '');
     if (mDosage != null) {
       _dosage = t.medicationDosage;
-      _dosageNum = double.tryParse(mDosage.group(1)!.replaceAll(',', '.')) ?? 500;
+      _dosageNum =
+          double.tryParse(mDosage.group(1)!.replaceAll(',', '.')) ?? 500;
       final u = mDosage.group(2)!.toLowerCase();
       _dosageUnit = _kDosageUnits.contains(u) ? u : 'mg';
     } else if ((t.medicationDosage ?? '').trim().isEmpty) {
@@ -128,8 +142,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
       _dose = t.dose;
       _doseQty = int.tryParse(mDose.group(1)!) ?? 1;
       final u = mDose.group(2)!.toLowerCase();
-      _doseUnit = _kDoseUnits.firstWhere((e) => e.contains(u),
-          orElse: () => 'dose(s)');
+      _doseUnit =
+          _kDoseUnits.firstWhere((e) => e.contains(u), orElse: () => 'dose(s)');
     } else {
       _dose = t.dose; // ex : "1" -> qty=1, unité par défaut
       _doseQty = 1;
@@ -140,6 +154,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
 
   @override
   void dispose() {
+    _medNameCtrl.dispose();
     _startCtl.dispose();
     _endCtl.dispose();
     _formCtrl.dispose();
@@ -166,9 +181,10 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
   // ---------- validateurs ----------
 
   String? _required(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Required field' : null;
+      (v == null || v.trim().isEmpty) ? 'Champ requis' : null;
 
-  String? _validateStart(String? v) => _start == null ? 'Choose a date' : null;
+  String? _validateStart(String? v) =>
+      _start == null ? 'Choisissez une date' : null;
 
   // ---------- sélecteur : dates et horaires ----------
 
@@ -179,9 +195,9 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
       initialDate: _start ?? now,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
-      helpText: isStart ? 'Start date' : 'End date',
-      cancelText: 'Cancel',
-      confirmText: 'Confirm',
+      helpText: isStart ? 'Date de début' : 'Date de fin',
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -203,13 +219,18 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
-      helpText: 'Dose time',
-      cancelText: 'Cancel',
-      confirmText: 'Confirm',
+      helpText: 'Horaire de prise',
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
     );
     if (t == null || !mounted) return;
+    final time = _fmtTimeOfDay(t);
+    if (_times.contains(time)) {
+      _snack('Cet horaire est déjà ajouté.');
+      return;
+    }
     setState(() {
-      _times.add(_fmtTimeOfDay(t));
+      _times.add(time);
       _times.sort(); // "HH:mm" se trie lexicographiquement
     });
   }
@@ -230,7 +251,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             children: [
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('Medication form',
+                child: Text('Forme du médicament',
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
@@ -254,7 +275,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                   title: Text(label,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   trailing: _selectedForm == label
-                      ? const Icon(Icons.check_rounded, color: Color(0xFF12B76A))
+                      ? const Icon(Icons.check_rounded,
+                          color: Color(0xFF12B76A))
                       : null,
                   onTap: () => Navigator.pop(c, label),
                 ),
@@ -269,12 +291,12 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
           _selectedForm = label;
           // unité de dose par défaut selon la forme choisie
           _doseUnit = switch (label) {
-            'Tablet' => 'tablet(s)',
-            'Capsule' => 'capsule(s)',
-            'Syrup' => 'spoon(s)',
-            'Drops' => 'drop(s)',
+            'Comprimé' => 'comprimé(s)',
+            'Gélule' => 'gélule(s)',
+            'Sirop' => 'cuillère(s)',
+            'Gouttes' => 'goutte(s)',
             'Injection' => 'dose(s)',
-            'Cream' => 'application(s)',
+            'Crème' => 'application(s)',
             _ => 'dose(s)',
           };
           _formCtrl.text = label;
@@ -305,13 +327,13 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Medication dosage',
+              const Text('Dosage du médicament',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 4),
-              const Text('Eg: 500 mg — tap a quick value or type it.',
+              const Text(
+                  'Ex : 500 mg — appuyez sur une valeur rapide ou tapez-la.',
                   style: TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
               const SizedBox(height: 12),
-              // valeurs rapides
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -347,16 +369,15 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              // valeur + unité
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: textCtl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Quantity',
+                        labelText: 'Quantité',
                         filled: true,
                         fillColor: const Color(0xFFF9FAFB),
                         border: OutlineInputBorder(
@@ -390,10 +411,11 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                   minimumSize: const Size.fromHeight(48),
                 ),
                 onPressed: () {
-                  final v = double.tryParse(textCtl.text.replaceAll(',', '.'));
+                  final v =
+                      double.tryParse(textCtl.text.replaceAll(',', '.'));
                   if (v == null || v <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Enter a valid value (eg: 500)')));
+                        content: Text('Entrez une valeur valide (ex : 500)')));
                     return;
                   }
                   Navigator.pop(context);
@@ -403,7 +425,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     _dosageCtrl.text = _dosage!;
                   });
                 },
-                child: const Text('Confirm',
+                child: const Text('Valider',
                     style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
@@ -431,35 +453,34 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
               left: 16,
               right: 16,
               top: 16,
-              // micro marge avant le clavier si jamais il s'ouvre
               bottom: MediaQuery.of(c).viewInsets.bottom + 16),
-          // SingleChildScrollView : la feuille ne doit JAMAIS overflow
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Dose per intake',
+                const Text('Dose par prise',
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(
                   _dosage == null
-                      ? 'How many per intake?'
-                      : 'Dosage $_dosage — how many per intake?',
+                      ? 'Combien à chaque prise ?'
+                      : 'Dosage $_dosage — combien à chaque prise ?',
                   style:
                       const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
                 ),
                 const SizedBox(height: 12),
-                // stepper [-  2  +]
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      onPressed: qty <= 1 ? null : () => setSheetState(() => qty--),
-                      style:
-                          IconButton.styleFrom(backgroundColor: const Color(0xFFE0F2F1)),
-                      icon: const Icon(Icons.remove_rounded, color: Color(0xFF0B6B5D)),
+                      onPressed:
+                          qty <= 1 ? null : () => setSheetState(() => qty--),
+                      style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0F2F1)),
+                      icon: const Icon(Icons.remove_rounded,
+                          color: Color(0xFF0B6B5D)),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -469,14 +490,14 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     ),
                     IconButton(
                       onPressed: () => setSheetState(() => qty++),
-                      style:
-                          IconButton.styleFrom(backgroundColor: const Color(0xFFE0F2F1)),
-                      icon: const Icon(Icons.add_rounded, color: Color(0xFF0B6B5D)),
+                      style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0F2F1)),
+                      icon: const Icon(Icons.add_rounded,
+                          color: Color(0xFF0B6B5D)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                // unité de la dose
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -505,7 +526,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     });
                     Navigator.pop(context);
                   },
-                  child: const Text('Confirm',
+                  child: const Text('Valider',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
@@ -516,21 +537,171 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     );
   }
 
+  Future<void> _pickFromCatalog() async {
+    final meds = await _medRepo.allForUser(widget.userId);
+    if (!mounted) return;
+    if (meds.isEmpty) {
+      _snack('Aucun médicament dans votre catalogue. Saisissez un nom ou ajoutez-en un dans Médicaments.');
+      return;
+    }
+    final chosen = await showModalBottomSheet<Medication>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Choisir depuis mes médicaments',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: meds.length,
+                itemBuilder: (_, i) {
+                  final m = meds[i];
+                  return ListTile(
+                    leading: const Icon(Icons.medication_rounded,
+                        color: Color(0xFF0B6B5D)),
+                    title: Text(m.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: m.dosage == null ? null : Text(m.dosage!),
+                    trailing: _medicationId == m.id
+                        ? const Icon(Icons.check_rounded,
+                            color: Color(0xFF12B76A))
+                        : null,
+                    onTap: () => Navigator.pop(c, m),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null && mounted) {
+      setState(() {
+        _medicationId = chosen.id;
+        _medNameCtrl.text = chosen.name;
+        _medName = chosen.name;
+        if ((chosen.dosage ?? '').trim().isNotEmpty) {
+          _dosage = chosen.dosage;
+          _dosageCtrl.text = chosen.dosage!;
+        }
+        _drugInfo = null;
+        _drugLookupMsg = null;
+      });
+    }
+  }
+
+  // ---------- valeur ajoutée : vérification du médicament (openFDA) ----------
+
+  Future<void> _lookupDrug() async {
+    final name = _medNameCtrl.text.trim();
+    if (name.length < 3) {
+      _snack('Saisissez le nom du médicament (3 caractères min.).');
+      return;
+    }
+    setState(() {
+      _drugLookupLoading = true;
+      _drugLookupMsg = null;
+      _drugInfo = null;
+    });
+    final info = await DrugInfoService.instance.lookup(name);
+    if (!mounted) return;
+    setState(() {
+      _drugLookupLoading = false;
+      _drugInfo = info;
+      _drugLookupMsg = info == null
+          ? 'Aucune info trouvée (hors ligne ou nom inconnu). Vous pouvez continuer.'
+          : null;
+    });
+  }
+
+  Widget _drugLookupCard() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user_outlined,
+                  size: 18, color: Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Informations sur le médicament',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E3A8A))),
+              ),
+              if (_drugLookupLoading)
+                const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                TextButton(
+                  onPressed: _lookupDrug,
+                  child: const Text('Rechercher'),
+                ),
+            ],
+          ),
+          if (_drugInfo == null && _drugLookupMsg == null && !_drugLookupLoading)
+            const Text(
+              'Vérifiez le nom et consultez les informations disponibles.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            ),
+          if (_drugInfo != null) ...[
+            const SizedBox(height: 6),
+            Text(_drugInfo!.name,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: Color(0xFF166534))),
+            if (_drugInfo!.purpose != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(_drugInfo!.purpose!,
+                    style: const TextStyle(fontSize: 12)),
+              ),
+          ],
+          if (_drugLookupMsg != null) ...[
+            const SizedBox(height: 6),
+            Text(_drugLookupMsg!,
+                style:
+                    const TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ---------- résumé du plan (live) ----------
 
   String get _planSummary {
     final nPerDay = _times.length;
-    if (nPerDay == 0) return 'Add at least one time.';
-    if (_start == null) return 'Choose a start date.';
+    if (nPerDay == 0) return 'Ajoutez au moins un horaire.';
+    if (_start == null) return 'Choisissez une date de début.';
     final end = _end;
     if (end == null) {
       final total = 60 * nPerDay;
-      return 'Chronic treatment: doses generated for '
-          'the next 60 days (~$total doses).';
+      return 'Traitement chronique : prises générées pour '
+          'les 60 prochains jours (~$total prises).';
     }
     final days = end.difference(_dayStart(_start!)).inDays + 1;
-    if (days <= 0) return 'The end date must be after the start.';
-    return '≈ ${days * nPerDay} doses spread over $days day(s).';
+    if (days <= 0) return 'La date de fin doit être après le début.';
+    return '≈ ${days * nPerDay} prises réparties sur $days jour(s).';
   }
 
   // ---------- sauvegarde ----------
@@ -540,21 +711,22 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
     _key.currentState!.save();
 
     if (_start == null) {
-      _snack('Choose a start date.');
+      _snack('Choisissez une date de début.');
       return;
     }
     if (_end != null && _end!.isBefore(_start!)) {
-      _snack('The end date must be after the start date.');
+      _snack('La date de fin doit être après la date de début.');
       return;
     }
     if (_times.isEmpty) {
-      _snack('Add at least one dose time.');
+      _snack('Ajoutez au moins un horaire de prise.');
       return;
     }
 
     final t = Treatment(
       id: widget.treatment?.id,
       userId: widget.userId,
+      medicationId: _medicationId,
       medicationName: _medName.trim(),
       medicationDosage: _dosage,
       dose: _dose.trim().isEmpty ? '$_doseQty $_doseUnit' : _dose,
@@ -572,7 +744,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
         await repo.create(t);
       }
     } catch (e) {
-      if (mounted) _snack('Error: $e');
+      if (mounted) _snack('Erreur : $e');
       return;
     }
     if (mounted) Navigator.pop(context); // liste rechargée par _reload()
@@ -592,7 +764,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         title: Text(
-          _isEdit ? 'Edit treatment' : 'New treatment',
+          _isEdit ? 'Modifier le traitement' : 'Nouveau traitement',
           style: const TextStyle(
               fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
         ),
@@ -602,19 +774,44 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _section('MEDICATION'),
-            _field(
-              label: 'Medication name *',
-              hint: 'Eg: Amoxicillin',
-              initialValue: widget.treatment?.medicationName,
-              icon: Icons.medication_rounded,
+            _section('MÉDICAMENT'),
+            TextFormField(
+              controller: _medNameCtrl,
               validator: _required,
-              onSaved: (v) => _medName = v!,
+              onSaved: (v) => _medName = v ?? '',
+              onChanged: (_) {
+                if (_medicationId != null || _drugInfo != null || _drugLookupMsg != null) {
+                  setState(() {
+                    _medicationId = null; // saisie libre -> plus lié au catalogue
+                    _drugInfo = null;
+                    _drugLookupMsg = null;
+                  });
+                }
+              },
+              decoration: _decoration(
+                labelText: 'Nom du médicament *',
+                icon: Icons.medication_rounded,
+                hint: 'Ex : Amoxicilline',
+                suffix: _medicationId != null
+                    ? const Icon(Icons.link_rounded, color: Color(0xFF0B6B5D))
+                    : null,
+              ),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _pickFromCatalog,
+                icon: const Icon(Icons.medication_liquid_rounded, size: 18),
+                label: Text(_medicationId == null
+                    ? 'Choisir depuis mes médicaments'
+                    : 'Lié au catalogue (changer)'),
+              ),
+            ),
+            _drugLookupCard(),
             _pickerField(
-              label: 'Form',
+              label: 'Forme',
               value: _selectedForm == null ? null : (_selectedForm!),
-              hint: 'Eg: Tablet',
+              hint: 'Ex : Comprimé',
               icon: _iconOf(_selectedForm),
               onTap: _pickForm,
               controller: _formCtrl,
@@ -622,21 +819,21 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             _pickerField(
               label: 'Dosage',
               value: _dosage,
-              hint: 'Eg: 500 mg',
+              hint: 'Ex : 500 mg',
               icon: Icons.scale_rounded,
               onTap: _pickDosage,
               controller: _dosageCtrl,
             ),
             _pickerField(
-              label: 'Dose per intake *',
+              label: 'Dose par prise *',
               value: _dose,
-              hint: 'Eg: 2 tablets',
+              hint: 'Ex : 2 comprimés',
               icon: Icons.water_drop_rounded,
               onTap: _pickDose,
               controller: _doseCtrl,
             ),
 
-            _section('DOSE TIMES'),
+            _section('HORAIRES DES PRISES'),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Wrap(
@@ -655,7 +852,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     ),
                   ActionChip(
                     avatar: const Icon(Icons.add_alarm_rounded, size: 18),
-                    label: const Text('Add a time'),
+                    label: const Text('Ajouter un horaire'),
                     backgroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xFF0B6B5D)),
                     onPressed: _addTime,
@@ -665,32 +862,34 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             ),
             _infoCard(
               icon: Icons.query_stats_rounded,
-              title: 'Frequency: ${_times.length} dose(s) per day',
-              subtitle: 'Doses are scheduled automatically every '
-                  'day at these times (editable later).',
+              title: 'Fréquence : ${_times.length} prise(s) par jour',
+              subtitle:
+                  'Les prises sont planifiées automatiquement chaque '
+                  'jour à ces horaires (modifiables après).',
             ),
 
-            _section('TREATMENT PERIOD'),
+            _section('PÉRIODE DU TRAITEMENT'),
             _dateField(
               controller: _startCtl,
-              labelText: 'Start date *',
+              labelText: 'Date de début *',
               icon: Icons.event_available_rounded,
               validator: _validateStart,
               onTap: () => _pickDate(true),
             ),
             _dateField(
               controller: _endCtl,
-              labelText: 'End date (empty = chronic)',
+              labelText: 'Date de fin (vide = chronique)',
               icon: Icons.event_busy_rounded,
               onTap: () => _pickDate(false),
               suffix: _end == null
                   ? IconButton(
-                      tooltip: 'Choose an end date',
-                      icon: const Icon(Icons.calendar_today_rounded, size: 20),
+                      tooltip: 'Choisir une date de fin',
+                      icon:
+                          const Icon(Icons.calendar_today_rounded, size: 20),
                       onPressed: () => _pickDate(false),
                     )
                   : IconButton(
-                      tooltip: 'Remove (chronic treatment)',
+                      tooltip: 'Retirer (traitement chronique)',
                       icon: const Icon(Icons.close_rounded, size: 20),
                       onPressed: () => setState(() {
                         _end = null;
@@ -700,7 +899,7 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             ),
             _infoCard(
               icon: Icons.summarize_rounded,
-              title: 'Plan summary',
+              title: 'Résumé du plan',
               subtitle: _planSummary,
             ),
 
@@ -715,13 +914,13 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
                     borderRadius: BorderRadius.circular(14)),
               ),
               icon: const Icon(Icons.check_rounded),
-              label: const Text('Save',
+              label: const Text('Enregistrer',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ),
             const SizedBox(height: 8),
             const Center(
               child: Text(
-                'History of past doses: never modified.',
+                'Historique des prises déjà passées : jamais modifié.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
               ),
@@ -734,8 +933,10 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
 
   // ---------- helpers UI ----------
 
-  IconData _iconOf(String? form) =>
-      _kForms.firstWhere((f) => f.$1 == form, orElse: () => ('', Icons.medication_rounded)).$2;
+  IconData _iconOf(String? form) => _kForms
+      .firstWhere((f) => f.$1 == form,
+          orElse: () => ('', Icons.medication_rounded))
+      .$2;
 
   Widget _section(String title) => Padding(
         padding: const EdgeInsets.only(top: 18, bottom: 8),
@@ -805,26 +1006,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF0B6B5D), width: 1.5)),
-      );
-
-  /// Champ texte libre (nom du médicament)
-  Widget _field({
-    required String label,
-    required String hint,
-    String? initialValue,
-    IconData? icon,
-    String? Function(String?)? validator,
-    void Function(String?)? onSaved,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: TextFormField(
-          initialValue: initialValue,
-          validator: validator,
-          onSaved: onSaved,
-          decoration: _decoration(labelText: label, icon: icon, hint: hint),
-        ),
+            borderSide:
+                const BorderSide(color: Color(0xFF0B6B5D), width: 1.5)),
       );
 
   /// Champ "ne se tape pas" : readOnly + onTap -> picker
@@ -846,7 +1029,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
             labelText: label,
             icon: icon,
             hint: hint,
-            suffix: const Icon(Icons.expand_more_rounded, size: 20, color: Color(0xFF6B7280)),
+            suffix: const Icon(Icons.expand_more_rounded,
+                size: 20, color: Color(0xFF6B7280)),
           ),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
@@ -868,7 +1052,8 @@ class _TreatmentFormState extends State<TreatmentFormScreen> {
           readOnly: true,
           onTap: onTap,
           validator: validator,
-          decoration: _decoration(labelText: labelText, icon: icon, suffix: suffix),
+          decoration:
+              _decoration(labelText: labelText, icon: icon, suffix: suffix),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       );

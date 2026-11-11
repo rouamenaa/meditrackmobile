@@ -92,6 +92,7 @@ class TreatmentRepository {
       CREATE TABLE IF NOT EXISTS treatments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
+        medication_id INTEGER,
         medication_name TEXT NOT NULL,
         medication_dosage TEXT,
         dose TEXT NOT NULL,
@@ -101,6 +102,13 @@ class TreatmentRepository {
         status TEXT NOT NULL DEFAULT 'active'
       )
     ''');
+    // Migration douce : base existante créée avant le lien médicament.
+    try {
+      await db.execute(
+          'ALTER TABLE treatments ADD COLUMN medication_id INTEGER');
+    } catch (_) {
+      // colonne déjà présente
+    }
     await db.execute('''
       CREATE TABLE IF NOT EXISTS intake_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -239,21 +247,26 @@ class TreatmentRepository {
     );
   }
 
-  /// Bouton "Valider la prise" de la carte : marque la prochaine prise
-  /// du jour (la plus proche) comme prise.
+  /// Bouton "Valider la prise" : marque la prochaine prise en attente
+  /// du jour comme prise (la plus proche, passée ou à venir aujourd'hui).
   Future<bool> logNextDose(int treatmentId) async {
     final db = await _db;
+    await _reconcileMissed();
+    final todayStart = _dayToIso(_now());
+    final tomorrow = _dayStart(_now().add(const Duration(days: 1)));
     final rows = await db.query(
       'intake_logs',
+      columns: ['id'],
       where:
-          'treatment_id = ? AND status = ? AND scheduled_at < ? '
-          'AND scheduled_at >= ?',
+          'treatment_id = ? AND status = ? AND scheduled_at >= ? '
+          'AND scheduled_at < ?',
       whereArgs: [
         treatmentId,
         IntakeStatus.pending.name,
-        _nowIso,
-        _dayToIso(_now()),
+        todayStart,
+        tomorrow.toIso8601String(),
       ],
+      orderBy: 'scheduled_at ASC',
       limit: 1,
     );
     if (rows.isEmpty) return false;
@@ -263,12 +276,13 @@ class TreatmentRepository {
 
   // ================= Vue d'ensemble (écran principal) =================
 
-  /// Un seul aller-retour SQL -> liste + adhérence.
-  /// Passe aussi automatiquement les traitements "active"
-  /// dont la date de fin est passée en "completed".
+  /// Vue d'ensemble (1 seul Future -> 1 seul FutureBuilder dans l'écran)
+  /// - auto-complète les traitements dont la fin est passée
+  /// - marque en "manquée" les prises en attente dont l'horaire est dépassé
   Future<TreatmentOverview> overview(String userId) async {
     final db = await _db;
     await _autoComplete();
+    await _reconcileMissed();
 
     // ---- adhérence 7 derniers jours (sur prises passées uniquement)
     final weekRows = await db.rawQuery('''
@@ -383,6 +397,18 @@ class TreatmentRepository {
       where: "status IN ('active', 'planned') AND end_date IS NOT NULL "
           'AND end_date < ?',
       whereArgs: [_dayToIso(_now())],
+    );
+  }
+
+  /// Marque en "manquée" toute prise encore en attente dont l'horaire
+  /// planifié est dépassé. L'historique reste intact (jamais supprimé).
+  Future<int> _reconcileMissed() async {
+    final db = await _db;
+    return db.update(
+      'intake_logs',
+      {'status': IntakeStatus.missed.name},
+      where: 'status = ? AND scheduled_at < ?',
+      whereArgs: [IntakeStatus.pending.name, _nowIso],
     );
   }
 

@@ -702,7 +702,7 @@ class _Field extends StatelessWidget {
                 Expanded(
                   child: Text(value, style: const TextStyle(fontSize: 16)),
                 ),
-                ?trailing,
+                if (trailing != null) trailing!,
               ],
             ),
           ),

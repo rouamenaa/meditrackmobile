@@ -118,12 +118,12 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
         surfaceTintColor: Colors.white,
         elevation: 0,
         centerTitle: false,
-        title: const Text('My Treatments',
+        title: const Text('Mes traitements',
             style: TextStyle(
                 color: kTextDark, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
           IconButton(
-            tooltip: 'New treatment',
+            tooltip: 'Nouveau traitement',
             icon: const Icon(Icons.add_circle_rounded, color: kPrimary),
             onPressed: () => _openForm(),
           ),
@@ -210,7 +210,27 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
           return const Center(child: CircularProgressIndicator(color: kPrimary));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: kMuted, size: 36),
+                  const SizedBox(height: 10),
+                  Text('Erreur : ${snapshot.error}',
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _reload,
+                    style: FilledButton.styleFrom(backgroundColor: kPrimary),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Réessayer'),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         final ov = snapshot.data!;
         return ListView(
@@ -223,7 +243,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
             ..._activeCards(ov),
             if (ov.past.isNotEmpty) ...[
               const SizedBox(height: 8),
-              _sectionTitle('COMPLETED PROTOCOLS', '${ov.past.length} Archived'),
+              _sectionTitle('PROTOCOLES TERMINÉS', '${ov.past.length} Archivé(s)'),
               const SizedBox(height: 10),
               ..._pastCards(ov.past),
             ],
@@ -243,7 +263,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
           children: [
             const Expanded(
               child: Text(
-                'Active treatments\n& plans',
+                'Traitements actifs\n& plans',
                 style: TextStyle(
                     fontSize: 26, fontWeight: FontWeight.w800, color: kTextDark, height: 1.15),
               ),
@@ -279,7 +299,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
               decoration: const BoxDecoration(shape: BoxShape.circle, color: kGreen),
             ),
             const SizedBox(width: 6),
-            Text('${ov.active.length} active treatment protocol(s)',
+            Text('${ov.active.length} protocole(s) de traitement actif(s)',
                 style: const TextStyle(color: kMuted, fontSize: 13)),
           ],
         ),
@@ -320,7 +340,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Weekly adherence',
+                const Text('Adhérence hebdo',
                     style: TextStyle(color: Colors.white70, fontSize: 12)),
                 const SizedBox(height: 4),
                 Text(
@@ -330,10 +350,10 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 ),
                 Text(
                   pct == null
-                      ? 'No doses scheduled this week'
+                      ? 'Aucune prise planifiée cette semaine'
                       : pct >= 0.8
-                          ? 'On track'
-                          : 'Missed doses this week',
+                          ? 'Sur la bonne voie'
+                          : 'Prises manquées cette semaine',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -389,10 +409,10 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
             children: const [
               Icon(Icons.medication_rounded, color: kMuted, size: 40),
               SizedBox(height: 10),
-              Text('No active treatment',
+              Text('Aucun traitement actif',
                   style: TextStyle(fontWeight: FontWeight.w700, color: kTextDark)),
               SizedBox(height: 4),
-              Text('Tap + to create your first protocol.',
+              Text('Appuyez sur + pour créer votre premier protocole.',
                   style: TextStyle(color: kMuted, fontSize: 13), textAlign: TextAlign.center),
             ],
           ),
@@ -492,8 +512,8 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                     Expanded(
                       child: Text(
                         t.hasExpiredDate
-                            ? 'Period ended'
-                            : 'Next dose: ${fmtProchainePrise(s.nextDose, now)}',
+                            ? 'Période terminée'
+                            : 'Prochaine dose : ${fmtProchainePrise(s.nextDose, now)}',
                         style: const TextStyle(
                             color: kPrimary, fontWeight: FontWeight.w600, fontSize: 12),
                       ),
@@ -507,7 +527,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                       const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFF59E0B)),
                       const SizedBox(width: 6),
                       Text(
-                        'Ends on ${fmtDate(t.endDate!)}',
+                        'Se termine le ${fmtDate(t.endDate!)}',
                         style: const TextStyle(color: Color(0xFFB45309), fontSize: 12),
                       ),
                     ],
@@ -517,7 +537,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                 // --- ligne 3 : progression
                 Row(
                   children: [
-                    const Text('Treatment progress',
+                    const Text('Progression du traitement',
                         style: TextStyle(color: kMuted, fontSize: 11)),
                     const Spacer(),
                     Text('${(s.progress * 100).round()} %',
@@ -554,8 +574,8 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                       onPressed: () async {
                         final ok = await _repo.logNextDose(t.id!);
                         _snack(ok
-                            ? 'Dose logged ✅ (${fmtTime(now)})'
-                            : 'No dose pending for today');
+                            ? 'Prise enregistrée ✅ (${fmtTime(now)})'
+                            : 'Aucune prise en attente pour aujourd\'hui');
                         _reload();
                       },
                       style: TextButton.styleFrom(
@@ -566,7 +586,7 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                             borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: const Icon(Icons.task_alt, size: 16),
-                      label: const Text('Log dose',
+                      label: const Text('Valider dose',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                     ),
                   ],
@@ -630,8 +650,8 @@ class _TreatmentsScreenState extends State<TreatmentsScreen> {
                       const SizedBox(width: 8),
                       _badge(
                         s.treatment.status == TreatmentStatus.completed
-                            ? 'Completed'
-                            : 'Stopped',
+                            ? 'Terminé'
+                            : 'Arrêté',
                         s.treatment.status == TreatmentStatus.completed
                             ? kBlueSoft
                             : kPinkSoft,
