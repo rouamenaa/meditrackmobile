@@ -27,10 +27,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _urgenceTelCtrl;
   late final TextEditingController _assuranceNomCtrl;
   late final TextEditingController _assurancePoliceCtrl;
+  late final TextEditingController _specialiteCtrl;
+  late final TextEditingController _rppsCtrl;
+  late final TextEditingController _etablissementCtrl;
+  late final TextEditingController _horairesCtrl;
 
   String? _sexe;
   String? _groupeSanguin;
   bool _loading = false;
+
+  bool get _isMedecin => widget.user.isMedecin;
 
   static const _groupes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -48,6 +54,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _urgenceTelCtrl = TextEditingController(text: u.contactUrgenceTel ?? '');
     _assuranceNomCtrl = TextEditingController(text: u.assuranceNom ?? '');
     _assurancePoliceCtrl = TextEditingController(text: u.assurancePolice ?? '');
+    _specialiteCtrl = TextEditingController(text: u.specialite ?? '');
+    _rppsCtrl = TextEditingController(text: u.rppsAdeli ?? '');
+    _etablissementCtrl = TextEditingController(text: u.etablissement ?? '');
+    _horairesCtrl = TextEditingController(text: u.horairesConsultation ?? '');
     _sexe = u.sexe;
     _groupeSanguin =
         (u.groupeSanguin != null && _groupes.contains(u.groupeSanguin))
@@ -67,6 +77,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _urgenceTelCtrl.dispose();
     _assuranceNomCtrl.dispose();
     _assurancePoliceCtrl.dispose();
+    _specialiteCtrl.dispose();
+    _rppsCtrl.dispose();
+    _etablissementCtrl.dispose();
+    _horairesCtrl.dispose();
     super.dispose();
   }
 
@@ -104,10 +118,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         contactUrgenceTel: _emptyToNull(_urgenceTelCtrl.text),
         assuranceNom: _emptyToNull(_assuranceNomCtrl.text),
         assurancePolice: _emptyToNull(_assurancePoliceCtrl.text),
+        specialite: _emptyToNull(_specialiteCtrl.text),
+        rppsAdeli: _emptyToNull(_rppsCtrl.text),
+        etablissement: _emptyToNull(_etablissementCtrl.text),
+        horairesConsultation: _emptyToNull(_horairesCtrl.text),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil mis à jour')),
+        const SnackBar(content: Text('Profile updated')),
       );
       Navigator.of(context).pop(updated);
     } on ApiException catch (e) {
@@ -149,29 +167,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _SectionLabel('Identité'),
+                const _SectionLabel('Identity'),
                 TextFormField(
                   controller: _prenomCtrl,
                   textCapitalization: TextCapitalization.words,
-                  decoration: _decoration('Prénom', Icons.person_outline),
+                  decoration: _decoration('First Name', Icons.person_outline),
                   validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Prénom obligatoire'
+                      ? 'First name is required'
                       : null,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _nomCtrl,
                   textCapitalization: TextCapitalization.words,
-                  decoration: _decoration('Nom', Icons.badge_outlined),
+                  decoration: _decoration('Last Name', Icons.badge_outlined),
                   validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Nom obligatoire' : null,
+                      (v == null || v.trim().isEmpty) ? 'Last name is required' : null,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _telCtrl,
                   keyboardType: TextInputType.phone,
                   decoration:
-                      _decoration('Téléphone', Icons.phone_outlined),
+                      _decoration('Phone', Icons.phone_outlined),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -179,73 +197,107 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   readOnly: true,
                   onTap: _pickDate,
                   decoration: _decoration(
-                      'Date de naissance', Icons.cake_outlined),
+                      'Date of Birth', Icons.cake_outlined),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: _sexe,
-                  decoration: _decoration('Sexe', Icons.wc_outlined),
+                  decoration: _decoration('Sex', Icons.wc_outlined),
                   items: const [
-                    DropdownMenuItem(value: 'Femme', child: Text('Femme')),
-                    DropdownMenuItem(value: 'Homme', child: Text('Homme')),
-                    DropdownMenuItem(value: 'Autre', child: Text('Autre')),
+                    DropdownMenuItem(value: 'Femme', child: Text('Female')),
+                    DropdownMenuItem(value: 'Homme', child: Text('Male')),
+                    DropdownMenuItem(value: 'Autre', child: Text('Other')),
                   ],
                   onChanged: (v) => setState(() => _sexe = v),
                 ),
                 const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _groupeSanguin,
-                  decoration:
-                      _decoration('Groupe sanguin', Icons.bloodtype_outlined),
-                  items: [
-                    for (final g in _groupes)
-                      DropdownMenuItem(value: g, child: Text(g)),
-                  ],
-                  onChanged: (v) => setState(() => _groupeSanguin = v),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _conditionCtrl,
-                  decoration: _decoration(
-                      'Condition médicale', Icons.monitor_heart_outlined),
-                ),
-                const SizedBox(height: 22),
+                if (_isMedecin) ...[
+                  const SizedBox(height: 8),
+                  const _SectionLabel('Professional Information'),
+                  TextFormField(
+                    controller: _specialiteCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _decoration(
+                        'Specialty', Icons.medical_services_outlined),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _rppsCtrl,
+                    decoration: _decoration(
+                        'RPPS / ADELI Number', Icons.badge_outlined),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _etablissementCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _decoration('Practice / Establishment',
+                        Icons.local_hospital_outlined),
+                  ),
+                  const SizedBox(height: 22),
+                  const _SectionLabel('Contact & Availability'),
+                  TextFormField(
+                    controller: _horairesCtrl,
+                    maxLines: 2,
+                    decoration: _decoration(
+                        'Consultation Hours', Icons.schedule_outlined),
+                  ),
+                  const SizedBox(height: 28),
+                ] else ...[
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    initialValue: _groupeSanguin,
+                    decoration:
+                        _decoration('Blood Group', Icons.bloodtype_outlined),
+                    items: [
+                      for (final g in _groupes)
+                        DropdownMenuItem(value: g, child: Text(g)),
+                    ],
+                    onChanged: (v) => setState(() => _groupeSanguin = v),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _conditionCtrl,
+                    decoration: _decoration(
+                        'Medical Condition', Icons.monitor_heart_outlined),
+                  ),
+                  const SizedBox(height: 22),
 
-                const _SectionLabel('Contact d\'urgence'),
-                TextFormField(
-                  controller: _urgenceNomCtrl,
-                  textCapitalization: TextCapitalization.words,
-                  decoration:
-                      _decoration('Nom', Icons.contact_phone_outlined),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _urgenceLienCtrl,
-                  decoration: _decoration(
-                      'Lien (ex : conjoint, parent)', Icons.family_restroom),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _urgenceTelCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration:
-                      _decoration('Téléphone', Icons.phone_outlined),
-                ),
-                const SizedBox(height: 22),
+                  const _SectionLabel('Emergency Contact'),
+                  TextFormField(
+                    controller: _urgenceNomCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration:
+                        _decoration('Name', Icons.contact_phone_outlined),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _urgenceLienCtrl,
+                    decoration: _decoration(
+                        'Relationship (e.g. spouse, parent)',
+                        Icons.family_restroom),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _urgenceTelCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: _decoration('Phone', Icons.phone_outlined),
+                  ),
+                  const SizedBox(height: 22),
 
-                const _SectionLabel('Assurance'),
-                TextFormField(
-                  controller: _assuranceNomCtrl,
-                  decoration: _decoration(
-                      'Assureur', Icons.account_balance_outlined),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _assurancePoliceCtrl,
-                  decoration: _decoration(
-                      'N° de police', Icons.numbers_outlined),
-                ),
-                const SizedBox(height: 28),
+                  const _SectionLabel('Insurance'),
+                  TextFormField(
+                    controller: _assuranceNomCtrl,
+                    decoration: _decoration(
+                        'Insurance Provider', Icons.account_balance_outlined),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _assurancePoliceCtrl,
+                    decoration: _decoration(
+                        'Policy Number', Icons.numbers_outlined),
+                  ),
+                  const SizedBox(height: 28),
+                ],
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -263,7 +315,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2.5, color: Colors.white))
-                        : const Text('Enregistrer',
+                        : const Text('Save',
                             style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 15)),
                   ),

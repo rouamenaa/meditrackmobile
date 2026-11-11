@@ -15,6 +15,8 @@ const EDITABLE = [
   'rappel_avant_minutes', 'groupe_sanguin', 'condition_medicale',
   'contact_urgence_nom', 'contact_urgence_lien', 'contact_urgence_tel',
   'assurance_nom', 'assurance_police',
+  // Profil professionnel (médecin)
+  'specialite', 'rpps_adeli', 'etablissement', 'horaires_consultation',
 ];
 
 // Envoie un code de vérification. Renvoie un message d'erreur, ou null si OK.
@@ -204,6 +206,21 @@ exports.resetPassword = async (req, res) => {
     user.email_verifie = true; // l'accès à l'email est prouvé
     await user.save();
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// GET /users/doctors (médecins vérifiés, champs publics uniquement)
+exports.getDoctors = async (req, res) => {
+  try {
+    const doctors = await User.find({
+      role: 'medecin',
+      email_verifie: { $ne: false },
+    })
+      .select('nom prenom email telephone specialite rpps_adeli etablissement horaires_consultation photo')
+      .sort({ nom: 1, prenom: 1 });
+    res.json(doctors);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

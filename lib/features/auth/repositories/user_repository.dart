@@ -95,9 +95,14 @@ class UserRepository {
   }
 
   // ---------- Au lancement : retrouver l'utilisateur connecté ----------
-  Future<User?> restoreSession() async {
+  Future<User?> restoreSession({bool afterBiometric = false}) async {
     final id = await _session.loadSavedUserId();
     if (id == null) return null;
+    if (!afterBiometric && await _session.wasExplicitlySignedOut) return null;
+    if (!await _session.activateSavedToken()) {
+      await invalidateSession();
+      return null;
+    }
     try {
       final user = await _fetch(id);
       _session.user = user;
@@ -111,7 +116,7 @@ class UserRepository {
           return cached;
         }
       }
-      await _session.clear(); // token expiré, compte supprimé...
+      await invalidateSession(); // token expiré, compte supprimé...
       return null;
     }
   }
@@ -150,6 +155,10 @@ class UserRepository {
     String? contactUrgenceTel,
     String? assuranceNom,
     String? assurancePolice,
+    String? specialite,
+    String? rppsAdeli,
+    String? etablissement,
+    String? horairesConsultation,
   }) async {
     final id = _session.user!.id!;
     final data = await _api.put('/users/$id', {
@@ -165,6 +174,10 @@ class UserRepository {
       'contact_urgence_tel': contactUrgenceTel,
       'assurance_nom': assuranceNom,
       'assurance_police': assurancePolice,
+      'specialite': specialite,
+      'rpps_adeli': rppsAdeli,
+      'etablissement': etablissement,
+      'horaires_consultation': horairesConsultation,
     });
     final user = User.fromJson(Map<String, dynamic>.from(data));
     _session.user = user;
@@ -185,7 +198,18 @@ class UserRepository {
 
   // ---------- Déconnexion ----------
   Future<void> logout() async {
+    final preservedForBiometric = await _session.signOut();
+    if (preservedForBiometric) return;
+    await _deleteUserCache();
+  }
+
+  /// Clears remembered credentials after an expired/revoked session.
+  Future<void> invalidateSession() async {
     await _session.clear();
+    await _deleteUserCache();
+  }
+
+  Future<void> _deleteUserCache() async {
     final db = await _dbHelper.database;
     await db.delete('user_cache');
   }

@@ -51,11 +51,11 @@ class ApiService {
           await request.send().timeout(const Duration(seconds: 30));
       r = await http.Response.fromStream(streamed);
     } on TimeoutException {
-      throw ApiException('Le serveur ne répond pas');
+      throw ApiException('The server is not responding');
     } on SocketException {
-      throw ApiException('Serveur injoignable. Vérifie ta connexion.');
+      throw ApiException('Server unreachable. Check your connection.');
     } on http.ClientException {
-      throw ApiException('Serveur injoignable. Vérifie ta connexion.');
+      throw ApiException('Server unreachable. Check your connection.');
     }
     return _decode(r);
   }
@@ -65,11 +65,11 @@ class ApiService {
     try {
       r = await request().timeout(const Duration(seconds: 10));
     } on TimeoutException {
-      throw ApiException('Le serveur ne répond pas');
+      throw ApiException('The server is not responding');
     } on SocketException {
-      throw ApiException('Serveur injoignable. Vérifie ta connexion.');
+      throw ApiException('Server unreachable. Check your connection.');
     } on http.ClientException {
-      throw ApiException('Serveur injoignable. Vérifie ta connexion.');
+      throw ApiException('Server unreachable. Check your connection.');
     }
     return _decode(r);
   }
@@ -86,7 +86,7 @@ class ApiService {
 
     final msg = (body is Map && body['error'] != null)
         ? body['error'].toString()
-        : 'Erreur ${r.statusCode}';
+        : 'Error ${r.statusCode}';
     throw ApiException(msg, r.statusCode, body);
   }
 }

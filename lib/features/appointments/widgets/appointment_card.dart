@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/appointment.dart';
 import '../models/appointment_status.dart';
 
@@ -7,6 +8,8 @@ const _kNavy = Color(0xFF0A2540);
 
 class AppointmentCard extends StatelessWidget {
   final Appointment appointment;
+  final bool showPatient;
+  final bool canChangeStatus;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final ValueChanged<AppointmentStatus> onStatusChanged;
@@ -14,6 +17,8 @@ class AppointmentCard extends StatelessWidget {
   const AppointmentCard({
     super.key,
     required this.appointment,
+    this.showPatient = false,
+    this.canChangeStatus = false,
     required this.onTap,
     required this.onDelete,
     required this.onStatusChanged,
@@ -21,15 +26,25 @@ class AppointmentCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan.', 'Fév.', 'Mars', 'Avr.', 'Mai', 'Juin',
-      'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'
+      'Jan.',
+      'Feb.',
+      'Mar.',
+      'Apr.',
+      'May',
+      'Jun.',
+      'Jul.',
+      'Aug.',
+      'Sep.',
+      'Oct.',
+      'Nov.',
+      'Dec.',
     ];
     final day = dt.day.toString().padLeft(2, '0');
     final month = months[dt.month - 1];
     final year = dt.year;
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day $month $year à $hour:$minute';
+    return '$day $month $year at $hour:$minute';
   }
 
   void _showDeleteDialog(BuildContext context) {
@@ -37,22 +52,24 @@ class AppointmentCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Supprimer le rendez-vous ?'),
+        title: const Text('Delete this appointment?'),
         content: Text(
-          'Voulez-vous vraiment supprimer le rendez-vous avec ${appointment.practitioner?.fullName ?? "ce praticien"} ?',
+          'Do you really want to delete the appointment with ${showPatient ? appointment.patientName ?? "this patient" : appointment.practitioner?.fullName ?? "this practitioner"}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+            ),
             onPressed: () {
               Navigator.of(ctx).pop();
               onDelete();
             },
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -91,7 +108,9 @@ class AppointmentCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      isTeleconsult ? Icons.videocam_rounded : Icons.calendar_month_rounded,
+                      isTeleconsult
+                          ? Icons.videocam_rounded
+                          : Icons.calendar_month_rounded,
                       color: _kGreen,
                       size: 24,
                     ),
@@ -113,7 +132,10 @@ class AppointmentCard extends StatelessWidget {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(6),
@@ -129,7 +151,10 @@ class AppointmentCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: isTeleconsult
                                     ? Colors.purple.shade50
@@ -137,10 +162,14 @@ class AppointmentCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isTeleconsult ? 'Téléconsultation' : 'Présentiel',
+                                isTeleconsult
+                                    ? 'Teleconsultation'
+                                    : 'In-person',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isTeleconsult ? Colors.purple.shade800 : Colors.blue.shade800,
+                                  color: isTeleconsult
+                                      ? Colors.purple.shade800
+                                      : Colors.blue.shade800,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -151,32 +180,36 @@ class AppointmentCard extends StatelessWidget {
                     ),
                   ),
                   // Menu statut & suppression
-                  PopupMenuButton<AppointmentStatus>(
-                    icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
-                    tooltip: 'Changer le statut',
-                    onSelected: onStatusChanged,
-                    itemBuilder: (ctx) => [
-                      ...AppointmentStatus.values.map(
-                        (s) => PopupMenuItem(
-                          value: s,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: s.color,
-                                  shape: BoxShape.circle,
+                  if (canChangeStatus)
+                    PopupMenuButton<AppointmentStatus>(
+                      icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+                      tooltip: 'Change status',
+                      onSelected: onStatusChanged,
+                      itemBuilder: (ctx) => [
+                        ...AppointmentStatus.values
+                            .where((s) =>
+                                s != AppointmentStatus.CANCELLED_BY_PATIENT)
+                            .map(
+                          (s) => PopupMenuItem(
+                            value: s,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: s.color,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(s.labelFr),
-                            ],
+                                const SizedBox(width: 10),
+                                Text(s.labelFr),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
               const Divider(height: 20),
@@ -192,16 +225,22 @@ class AppointmentCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
 
-              // Praticien
+              // Affiche l'autre participant selon le rôle connecté.
               Row(
                 children: [
-                  Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.person_outline,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      appointment.practitioner != null
+                      showPatient
+                          ? appointment.patientName ?? 'Patient'
+                          : appointment.practitioner != null
                           ? '${appointment.practitioner!.fullName} (${appointment.practitioner!.specialty})'
-                          : 'Praticien #${appointment.practitionerId}',
+                          : 'Practitioner #${appointment.practitionerId}',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade800,
@@ -217,7 +256,11 @@ class AppointmentCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade600),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -234,7 +277,9 @@ class AppointmentCard extends StatelessWidget {
                 ),
               ],
 
-              if (isTeleconsult && appointment.videoUrl != null && appointment.videoUrl!.isNotEmpty) ...[
+              if (isTeleconsult &&
+                  appointment.videoUrl != null &&
+                  appointment.videoUrl!.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -263,7 +308,10 @@ class AppointmentCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: status.backgroundColor,
                       borderRadius: BorderRadius.circular(20),
@@ -292,8 +340,12 @@ class AppointmentCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFD32F2F)),
-                    tooltip: 'Supprimer',
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: Color(0xFFD32F2F),
+                    ),
+                    tooltip: 'Delete',
                     onPressed: () => _showDeleteDialog(context),
                   ),
                 ],

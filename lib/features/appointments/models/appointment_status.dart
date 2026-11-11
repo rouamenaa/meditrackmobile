@@ -14,19 +14,19 @@ enum AppointmentStatus {
   String get labelFr {
     switch (this) {
       case AppointmentStatus.SCHEDULED:
-        return 'Programmé';
+        return 'Scheduled';
       case AppointmentStatus.CONFIRMED:
-        return 'Confirmé';
+        return 'Confirmed';
       case AppointmentStatus.RESCHEDULED:
-        return 'Reporté';
+        return 'Rescheduled';
       case AppointmentStatus.CANCELLED_BY_PATIENT:
-        return 'Annulé par patient';
+        return 'Cancelled by patient';
       case AppointmentStatus.CANCELLED_BY_PRACTITIONER:
-        return 'Annulé par praticien';
+        return 'Cancelled by practitioner';
       case AppointmentStatus.COMPLETED:
-        return 'Terminé';
+        return 'Completed';
       case AppointmentStatus.MISSED:
-        return 'Manqué';
+        return 'Missed';
     }
   }
 

@@ -75,8 +75,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             email: result.user.email,
             warning: result.emailError == null
                 ? null
-                : 'L\'email de vérification n\'a pas pu être envoyé (${result.emailError}). '
-                    'Tu peux réessayer avec « Renvoyer le code ».',
+                : 'The verification email could not be sent (${result.emailError}). '
+                    'You can try again with "Resend code".',
           ),
         ),
       );
@@ -120,16 +120,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Créer un compte',
+                const Text('Create an account',
                     style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         color: kNavy)),
                 const SizedBox(height: 6),
-                Text('Renseignez vos informations pour commencer.',
+                Text('Enter your information to get started.',
                     style: TextStyle(color: Colors.grey.shade700)),
                 const SizedBox(height: 22),
-                const Text('Je suis',
+                const Text('I am a',
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -144,7 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     ButtonSegment(
                       value: 'medecin',
-                      label: Text('Médecin'),
+                      label: Text('Doctor'),
                       icon: Icon(Icons.medical_services_outlined),
                     ),
                   ],
@@ -161,18 +161,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _prenomCtrl,
                   textCapitalization: TextCapitalization.words,
-                  decoration: _decoration('Prénom', Icons.person_outline),
+                  decoration: _decoration('First Name', Icons.person_outline),
                   validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Prénom obligatoire'
+                      ? 'First name is required'
                       : null,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _nomCtrl,
                   textCapitalization: TextCapitalization.words,
-                  decoration: _decoration('Nom', Icons.badge_outlined),
+                  decoration: _decoration('Last Name', Icons.badge_outlined),
                   validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Nom obligatoire'
+                      ? 'Last name is required'
                       : null,
                 ),
                 const SizedBox(height: 14),
@@ -182,10 +182,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: _decoration('Email', Icons.mail_outline),
                   validator: (v) {
                     final value = v?.trim() ?? '';
-                    if (value.isEmpty) return 'Email obligatoire';
+                    if (value.isEmpty) return 'Email is required';
                     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                         .hasMatch(value)) {
-                      return 'Email invalide';
+                      return 'Invalid email';
                     }
                     return null;
                   },
@@ -195,7 +195,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _telCtrl,
                   keyboardType: TextInputType.phone,
                   decoration: _decoration(
-                      'Téléphone (optionnel)', Icons.phone_outlined),
+                      'Phone (optional)', Icons.phone_outlined),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -203,17 +203,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   readOnly: true,
                   onTap: _pickDate,
                   decoration: _decoration(
-                      'Date de naissance (optionnel)', Icons.cake_outlined),
+                      'Date of Birth (optional)', Icons.cake_outlined),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: _sexe,
                   decoration:
-                  _decoration('Sexe (optionnel)', Icons.wc_outlined),
+                  _decoration('Sex (optional)', Icons.wc_outlined),
                   items: const [
-                    DropdownMenuItem(value: 'Femme', child: Text('Femme')),
-                    DropdownMenuItem(value: 'Homme', child: Text('Homme')),
-                    DropdownMenuItem(value: 'Autre', child: Text('Autre')),
+                    DropdownMenuItem(value: 'Femme', child: Text('Female')),
+                    DropdownMenuItem(value: 'Homme', child: Text('Male')),
+                    DropdownMenuItem(value: 'Autre', child: Text('Other')),
                   ],
                   onChanged: (v) => setState(() => _sexe = v),
                 ),
@@ -222,7 +222,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _passwordCtrl,
                   obscureText: _hidePassword,
                   decoration: _decoration(
-                    'Mot de passe',
+                    'Password',
                     Icons.lock_outline,
                     suffix: IconButton(
                       icon: Icon(_hidePassword
@@ -234,9 +234,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) {
-                      return 'Mot de passe obligatoire';
+                      return 'Password is required';
                     }
-                    if (v.length < 6) return 'Minimum 6 caractères';
+                    if (v.length < 6) return 'Minimum 6 characters';
                     return null;
                   },
                 ),
@@ -245,9 +245,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _confirmCtrl,
                   obscureText: _hidePassword,
                   decoration: _decoration(
-                      'Confirmer le mot de passe', Icons.lock_outline),
+                      'Confirm Password', Icons.lock_outline),
                   validator: (v) => v != _passwordCtrl.text
-                      ? 'Les mots de passe ne correspondent pas'
+                      ? 'Passwords do not match'
                       : null,
                 ),
                 const SizedBox(height: 24),
@@ -268,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         height: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: Colors.white))
-                        : const Text('Créer mon compte',
+                        : const Text('Create my account',
                         style: TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 15)),
                   ),

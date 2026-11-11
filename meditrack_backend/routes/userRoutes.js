@@ -16,6 +16,7 @@ router.post('/forgot-password', c.forgotPassword);
 router.post('/reset-password', c.resetPassword);
 
 // Protégées (token obligatoire)
+router.get('/doctors', auth, c.getDoctors);
 router.get('/:id', auth, c.getUser);
 router.put('/:id', auth, c.updateUser);
 router.put('/:id/password', auth, c.changePassword);
