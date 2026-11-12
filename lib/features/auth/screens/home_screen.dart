@@ -5,6 +5,7 @@ import '../../appointments/models/appointment.dart';
 import '../../appointments/screens/appointment_form_screen.dart';
 import '../../appointments/screens/appointments_screen.dart';
 import '../../appointments/services/appointment_provider.dart';
+import '../../medications/screens/medications_screen.dart';
 import '../../physical_activity/screens/activity_list_screen.dart';
 import '../../treatments/models/treatment.dart';
 import '../../treatments/repositories/treatment_repository.dart';
@@ -216,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _goAppointments() => _open(AppointmentsScreen(user: widget.user));
   void _goTreatments() => _open(TreatmentsScreen(user: widget.user));
   void _goActivity() => _open(const ActivityListScreen());
+  void _goMedications() => _open(MedicationsScreen(user: widget.user));
   void _goProfile() => _open(ProfileScreen(user: widget.user));
   void _goAi() => _open(const AiAssistantScreen());
   void _goNewAppointment() => _open(AppointmentFormScreen(user: widget.user));
@@ -312,6 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTreatments: _goTreatments,
         onAppointments: _goAppointments,
         onActivity: _goActivity,
+        onMedications: _goMedications,
       ),
     );
   }
@@ -1325,12 +1328,14 @@ class _HomeNavBar extends StatelessWidget {
   final VoidCallback onTreatments;
   final VoidCallback onAppointments;
   final VoidCallback onActivity;
+  final VoidCallback onMedications;
 
   const _HomeNavBar({
     required this.onHome,
     required this.onTreatments,
     required this.onAppointments,
     required this.onActivity,
+    required this.onMedications,
   });
 
   @override
@@ -1363,6 +1368,11 @@ class _HomeNavBar extends StatelessWidget {
                 icon: Icons.medication_outlined,
                 label: 'Treatments',
                 onTap: onTreatments,
+              ),
+              _NavItem(
+                icon: Icons.medical_services_outlined,
+                label: 'Médicaments',
+                onTap: onMedications,
               ),
               _NavItem(
                 icon: Icons.calendar_today_rounded,

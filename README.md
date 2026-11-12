@@ -30,6 +30,7 @@ rappels de prise de médicaments, suivi d'activité physique et gestion des rend
 | --- | --- |
 | **Tableau de bord** (`home_screen.dart`) | Prochaine prise de médicament (validation en un tap), prochain rendez-vous, traitements du jour, alerte de fin de traitement |
 | **Connexion / inscription** | Inscription avec code de vérification envoyé par e-mail, mot de passe oublié |
+| **Médicaments** | Catalogue personnel (ajout, modification, suppression), gestion du stock, alertes stock bas, dates d'expiration, **recherche automatique via API RxNorm (NIH)** |
 | **Traitements** | Création d'un protocole (dose, horaires, dates), historique des prises, adhérence hebdomadaire, rappels locaux |
 | **Rendez-vous** | Liste des rendez-vous et historique, création d'un rendez-vous (praticien, lieu, motif, présentiel/téléconsultation) |
 | **Activité physique** | Journal d'activités (type, durée, intensité, calories) |
@@ -70,6 +71,7 @@ meditrackmobile/
 │   └── features/
 │       ├── auth/                     # connexion, inscription, vérification, profil
 │       ├── appointments/             # rendez-vous (modèle, provider, écrans, widgets)
+│       ├── medications/              # catalogue médicaments, stock, API RxNorm (NIH)
 │       ├── treatments/               # traitements, prises, historique, rappels
 │       ├── physical_activity/        # journal d'activité
 │       └── profile/                  # export PDF
@@ -222,6 +224,7 @@ Si l'e-mail n'arrive pas : vérifier les logs du backend (morgan), le dossier sp
 | --- | --- |
 | Authentification & profil | `lib/features/auth/` |
 | Rendez-vous | `lib/features/appointments/` |
+| **Médicaments** | **`lib/features/medications/`** |
 | Traitements & rappels | `lib/features/treatments/` |
 | Activité physique | `lib/features/physical_activity/` |
 | Export PDF | `lib/features/profile/` |
@@ -229,6 +232,29 @@ Si l'e-mail n'arrive pas : vérifier les logs du backend (morgan), le dossier sp
 > Convention d'équipe : chaque module est autonome. On n'édite pas le code d'un autre module ;
 > on consomme uniquement ses API publiques (`AppointmentProvider`, `TreatmentRepository`, etc.).
 > La base SQLite est partagée via `DatabaseHelper` (tables créées en `IF NOT EXISTS`).
+
+---
+
+## Module Médicaments — Valeur Ajoutée
+
+Le module médicaments intègre une **recherche automatique via l'API RxNorm** (National Institutes of Health, USA) :
+
+- **API** : `https://rxnav.nlm.nih.gov/REST` — gratuite, sans clé, base pharmaceutique officielle
+- **Fonctionnement** : dans le formulaire d'ajout, l'utilisateur tape le nom d'un médicament (ex : `ibuprofen`, `amoxicillin`) → l'API retourne une liste de résultats avec dosage et forme pharmaceutique → un tap remplit automatiquement le formulaire
+- **Données récupérées** : nom générique, dosage (ex : `200 MG`), forme (Oral Tablet, Capsule, Injection…), identifiant RxNorm (`rxcui`)
+- **Stockage** : les médicaments sont sauvegardés **localement en SQLite** (`medications` table dans `meditrack.db`)
+
+```
+lib/features/medications/
+├── models/medication.dart              # modèle + enum MedicationForm
+├── repositories/medication_repository.dart  # CRUD SQLite
+├── screens/
+│   ├── medications_screen.dart         # liste avec recherche
+│   ├── medication_detail_screen.dart   # détail + gestion stock
+│   └── medication_form_screen.dart     # formulaire + intégration RxNorm
+└── services/
+    └── drug_search_service.dart        # client API RxNorm (NIH)
+```
 
 ---
 
