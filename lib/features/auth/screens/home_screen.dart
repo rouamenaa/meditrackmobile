@@ -220,7 +220,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _goTreatments() => _open(TreatmentsScreen(user: widget.user));
   void _goMedications() => _open(MedicationsScreen(user: widget.user));
   void _goActivity() => _open(const ActivityListScreen());
-  void _goMedications() => _open(MedicationsScreen(user: widget.user));
   void _goProfile() => _open(ProfileScreen(user: widget.user));
   void _goAi() => _open(const AiAssistantScreen());
   void _goNewAppointment() => _open(AppointmentFormScreen(user: widget.user));
@@ -318,7 +317,6 @@ class _HomeScreenState extends State<HomeScreen> {
         onMedications: _goMedications,
         onAppointments: _goAppointments,
         onActivity: _goActivity,
-        onMedications: _goMedications,
       ),
     );
   }
@@ -1333,7 +1331,6 @@ class _HomeNavBar extends StatelessWidget {
   final VoidCallback onMedications;
   final VoidCallback onAppointments;
   final VoidCallback onActivity;
-  final VoidCallback onMedications;
 
   const _HomeNavBar({
     required this.onHome,
@@ -1341,7 +1338,6 @@ class _HomeNavBar extends StatelessWidget {
     required this.onMedications,
     required this.onAppointments,
     required this.onActivity,
-    required this.onMedications,
   });
 
   @override
@@ -1375,7 +1371,6 @@ class _HomeNavBar extends StatelessWidget {
                 label: 'Traitements',
                 onTap: onTreatments,
               ),
-              _NavItem(
               _NavItem(
                 icon: Icons.medication_liquid_rounded,
                 label: 'Médicaments',
