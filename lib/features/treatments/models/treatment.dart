@@ -126,8 +126,8 @@ class Treatment {
         'medication_dosage': medicationDosage,
         'dose': dose,
         'reminder_times': _encodeTimes(reminderTimes),
-        'start_date': _dateIso(startDate),
-        'end_date': endDate == null ? null : _dateIso(endDate!),
+        'start_date': dateIso(startDate),
+        'end_date': endDate == null ? null : dateIso(endDate!),
         'status': status.name,
       };
 
@@ -159,6 +159,6 @@ class Treatment {
   static DateTime _dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// "AAAA-MM-JJ" sans l'heure (colonne TEXT)
-  static String _dateIso(DateTime d) =>
+  static String dateIso(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
