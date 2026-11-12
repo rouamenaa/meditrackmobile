@@ -4,10 +4,9 @@ import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'login_screen.dart' show kGreen, kNavy, kBackground;
 
-/// Écran de confirmation du compte : l'utilisateur saisit le code reçu par email.
 class VerifyEmailScreen extends StatefulWidget {
   final String email;
-  final String? warning; // affiché si l'envoi initial de l'email a échoué
+  final String? warning;
 
   const VerifyEmailScreen({super.key, required this.email, this.warning});
 

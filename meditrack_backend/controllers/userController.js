@@ -3,12 +3,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { sendMail, generateCode } = require('../config/mailer');
 
-const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CODE_TTL_MS = 15 * 60 * 1000; 
 
 const sign = (user) =>
   jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
-// Champs modifiables avec PUT
 const EDITABLE = [
   'nom', 'prenom', 'telephone', 'date_naissance', 'sexe',
   'notif_medicaments', 'notif_rdv', 'notif_son', 'notif_vibration',
@@ -19,7 +18,6 @@ const EDITABLE = [
   'specialite', 'rpps_adeli', 'etablissement', 'horaires_consultation',
 ];
 
-// Envoie un code de vérification. Renvoie un message d'erreur, ou null si OK.
 async function sendVerificationCode(user) {
   const code = generateCode();
   user.verification_code = code;
@@ -42,7 +40,6 @@ async function sendVerificationCode(user) {
 }
 
 
-// GET /users
 exports.getUsers = async (req, res) => {
   try {
     res.json(await User.find());
@@ -51,7 +48,6 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// POST /users  (inscription)
 exports.register = async (req, res) => {
   try {
     const { nom, prenom, email, password, telephone, date_naissance, sexe, role } = req.body;
@@ -71,7 +67,6 @@ exports.register = async (req, res) => {
       email_verifie: false,
     });
 
-    // Envoi du code de vérification (le compte existe même si l'email échoue)
     const emailError = await sendVerificationCode(user);
 
     res.status(201).json({
@@ -85,7 +80,6 @@ exports.register = async (req, res) => {
   }
 };
 
-// POST /users/login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -93,7 +87,6 @@ exports.login = async (req, res) => {
     if (!user || !(await bcrypt.compare(password || '', user.password))) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
-    // Comptes créés avant l'ajout de la vérification (email_verifie absent) : on laisse passer
     if (user.email_verifie === false) {
       return res.status(403).json({
         error: 'Votre compte n\'est pas encore vérifié. Saisissez le code reçu par email.',
@@ -107,7 +100,6 @@ exports.login = async (req, res) => {
   }
 };
 
-// POST /users/verify/send  (renvoyer un code de vérification)
 exports.sendVerification = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -149,7 +141,6 @@ exports.confirmVerification = async (req, res) => {
   }
 };
 
-// POST /users/forgot-password  { email }
 exports.forgotPassword = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -182,7 +173,6 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// POST /users/reset-password  { email, code, new_password }
 exports.resetPassword = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -203,7 +193,7 @@ exports.resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(new_password, 10);
     user.reset_code = undefined;
     user.reset_expires = undefined;
-    user.email_verifie = true; // l'accès à l'email est prouvé
+    user.email_verifie = true; 
     await user.save();
     res.json({ ok: true });
   } catch (e) {
@@ -211,7 +201,6 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// GET /users/doctors (médecins vérifiés, champs publics uniquement)
 exports.getDoctors = async (req, res) => {
   try {
     const doctors = await User.find({
@@ -226,7 +215,6 @@ exports.getDoctors = async (req, res) => {
   }
 };
 
-// GET /users/:id
 exports.getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);

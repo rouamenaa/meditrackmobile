@@ -110,7 +110,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Export PDF du dossier médical.
   Future<void> _exportPdf() async {
     try {
       await MedicalReportService.exportPdf(_user);
@@ -195,7 +194,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ---------------- En-tête : photo, nom, ID, groupe sanguin ----------------
   Widget _buildHeader(User u) {
     final hasPhoto = u.photoUrl != null;
     final health = [

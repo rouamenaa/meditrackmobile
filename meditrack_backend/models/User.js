@@ -5,24 +5,18 @@ const userSchema = new mongoose.Schema(
     nom: { type: String, required: true, trim: true },
     prenom: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true }, // haché avec bcrypt
-
-    // Rôle : patient (par défaut) ou médecin
+    password: { type: String, required: true }, 
     role: { type: String, enum: ['patient', 'medecin'], default: 'patient' },
 
-    // Vérification de l'adresse email
-    // Pas de default : les comptes créés avant cette fonctionnalité restent valides.
     email_verifie: Boolean,
     verification_code: String,
     verification_expires: Date,
 
-    // Réinitialisation du mot de passe
     reset_code: String,
     reset_expires: Date,
 
     telephone: String,
-    date_naissance: String, // "1987-04-14"
-    sexe: String,
+    date_naissance: String, 
 
     notif_medicaments: { type: Boolean, default: true },
     notif_rdv: { type: Boolean, default: true },
@@ -30,7 +24,7 @@ const userSchema = new mongoose.Schema(
     notif_vibration: { type: Boolean, default: true },
     rappel_avant_minutes: { type: Number, default: 10 },
 
-    photo: String, // ex: "uploads/1712345678-123.jpg"
+    photo: String, 
     groupe_sanguin: String,
     condition_medicale: String,
     contact_urgence_nom: String,
@@ -39,7 +33,6 @@ const userSchema = new mongoose.Schema(
     assurance_nom: String,
     assurance_police: String,
 
-    // Profil professionnel (médecin)
     specialite: String,
     rpps_adeli: String,
     etablissement: String,
@@ -55,7 +48,6 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// On ne renvoie jamais le mot de passe, et _id devient id
 userSchema.set('toJSON', {
   transform: (doc, ret) => {
     ret.id = ret._id.toString();
