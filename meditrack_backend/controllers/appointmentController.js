@@ -22,20 +22,25 @@ function toResponse(appointment) {
           rpps_adeli: doctor.rpps_adeli,
           etablissement: doctor.etablissement,
         }
-      : null,
-    patient_id: patient?._id?.toString() || appointment.patient?.toString(),
+      : appointment.practitioner || null,
+    patient_id: patient?._id?.toString() || appointment.patient?.toString() || appointment.userId?.toString(),
     patient_name:
       patient && typeof patient === 'object' && patient.nom
         ? `${patient.prenom} ${patient.nom}`.trim()
         : '',
-    start_date_time: appointment.start_date_time.toISOString(),
-    duration_minutes: appointment.duration_minutes,
+    start_date_time: (appointment.start_date_time || appointment.startDateTime || new Date()).toISOString(),
+    startDateTime: appointment.startDateTime || appointment.start_date_time,
+    duration_minutes: appointment.duration_minutes || appointment.durationMinutes || 30,
+    durationMinutes: appointment.durationMinutes || appointment.duration_minutes || 30,
     reason: appointment.reason,
     notes: appointment.notes,
     modality: appointment.modality,
-    video_url: appointment.video_url,
+    video_url: appointment.video_url || appointment.videoUrl,
+    videoUrl: appointment.videoUrl || appointment.video_url,
     facility_name: appointment.facility_name,
     facility_address: appointment.facility_address,
+    facility: appointment.facility,
+    practitioner: appointment.practitioner,
     status: appointment.status,
   };
 }
@@ -46,17 +51,16 @@ function populated(query) {
     .populate('patient', 'nom prenom');
 }
 
+// GET /appointments
 exports.listMine = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('role');
-    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    const filter = user?.role === 'medecin'
+      ? { $or: [{ doctor: req.userId }, { userId: req.userId }] }
+      : { $or: [{ patient: req.userId }, { userId: req.userId }] };
 
-    const filter =
-      user.role === 'medecin'
-        ? { doctor: req.userId }
-        : { patient: req.userId };
     const appointments = await populated(
-      Appointment.find(filter).sort({ start_date_time: 1 })
+      Appointment.find(filter).sort({ start_date_time: 1, startDateTime: 1 })
     );
     res.json(appointments.map(toResponse));
   } catch (e) {
@@ -64,62 +68,68 @@ exports.listMine = async (req, res) => {
   }
 };
 
+// GET par ID
+exports.getAppointmentById = async (req, res) => {
+  try {
+    const id = req.params.appointmentId || req.params.id;
+    const appointment = await populated(Appointment.findById(id));
+    if (!appointment) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+    res.json(toResponse(appointment));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// POST /appointments
 exports.create = async (req, res) => {
   try {
-    const patient = await User.findById(req.userId).select('role nom prenom');
-    if (!patient) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (patient.role !== 'patient') {
-      return res.status(403).json({ error: 'Only patients can book appointments' });
-    }
-
     const {
       doctor_user_id,
+      practitioner,
+      facility,
       start_date_time,
+      startDateTime,
       duration_minutes,
+      durationMinutes,
       reason,
       notes,
       modality,
       video_url,
+      videoUrl,
       facility_name,
       facility_address,
+      status,
     } = req.body;
-    if (!mongoose.isValidObjectId(doctor_user_id)) {
-      return res.status(400).json({ error: 'Please select a valid doctor' });
-    }
-    const doctor = await User.findOne({
-      _id: doctor_user_id,
-      role: 'medecin',
-      email_verifie: { $ne: false },
-    }).select(DOCTOR_FIELDS);
-    if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
 
-    const start = new Date(start_date_time);
-    if (!start_date_time || Number.isNaN(start.getTime())) {
-      return res.status(400).json({ error: 'A valid appointment date is required' });
+    const start = new Date(start_date_time || startDateTime);
+    const duration = Number(duration_minutes || durationMinutes || 30);
+    const visitMode = modality === 'teleconsultation' ? 'teleconsultation' : 'presentiel';
+
+    let doctorId = null;
+    if (doctor_user_id && mongoose.isValidObjectId(doctor_user_id)) {
+      doctorId = doctor_user_id;
     }
-    if (!reason || !String(reason).trim()) {
-      return res.status(400).json({ error: 'Appointment reason is required' });
-    }
-    const duration = Number(duration_minutes || 30);
-    if (![15, 30, 45, 60].includes(duration)) {
-      return res.status(400).json({ error: 'Invalid appointment duration' });
-    }
-    const visitMode =
-      modality === 'teleconsultation' ? 'teleconsultation' : 'presentiel';
 
     const appointment = await Appointment.create({
-      patient: patient._id,
-      doctor: doctor._id,
+      patient: req.userId,
+      userId: req.userId,
+      doctor: doctorId,
+      practitioner: practitioner || null,
+      facility: facility || null,
       start_date_time: start,
+      startDateTime: start,
       duration_minutes: duration,
-      reason: String(reason).trim(),
+      durationMinutes: duration,
+      reason: String(reason || '').trim(),
       notes: notes == null ? '' : String(notes).trim(),
       modality: visitMode,
-      video_url: video_url || null,
-      facility_name: visitMode === 'presentiel' ? facility_name || '' : '',
-      facility_address:
-        visitMode === 'presentiel' ? facility_address || '' : '',
+      video_url: video_url || videoUrl || null,
+      videoUrl: videoUrl || video_url || null,
+      facility_name: facility_name || facility?.name || '',
+      facility_address: facility_address || facility?.address || '',
+      status: status || 'SCHEDULED',
     });
+
     const result = await populated(Appointment.findById(appointment._id));
     res.status(201).json(toResponse(result));
   } catch (e) {
@@ -127,88 +137,28 @@ exports.create = async (req, res) => {
   }
 };
 
+// PUT /appointments/:appointmentId
 exports.update = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.appointmentId)) {
-      return res.status(400).json({ error: 'Invalid appointment ID' });
+    const id = req.params.appointmentId || req.params.id;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+
+    Object.assign(appointment, req.body);
+    if (req.body.start_date_time || req.body.startDateTime) {
+      const d = new Date(req.body.start_date_time || req.body.startDateTime);
+      appointment.start_date_time = d;
+      appointment.startDateTime = d;
     }
-    const appointment = await Appointment.findById(req.params.appointmentId);
-    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
-
-    const user = await User.findById(req.userId).select('role');
-    const isDoctor =
-      user?.role === 'medecin' && appointment.doctor.toString() === req.userId;
-    const isPatient =
-      user?.role === 'patient' && appointment.patient.toString() === req.userId;
-    if (!isDoctor && !isPatient) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (req.body.facility !== undefined) {
+      appointment.facility = req.body.facility;
+      appointment.markModified('facility');
     }
-
-    const fields = isDoctor
-      ? [
-          'start_date_time',
-          'duration_minutes',
-          'reason',
-          'notes',
-          'modality',
-          'video_url',
-          'facility_name',
-          'facility_address',
-          'status',
-        ]
-      : [
-          'doctor_user_id',
-          'start_date_time',
-          'duration_minutes',
-          'reason',
-          'notes',
-          'modality',
-          'video_url',
-          'facility_name',
-          'facility_address',
-        ];
-
-    for (const field of fields) {
-      if (!(field in req.body)) continue;
-      if (field === 'status') {
-        const doctorStatuses = [
-          'SCHEDULED',
-          'CONFIRMED',
-          'RESCHEDULED',
-          'CANCELLED_BY_PRACTITIONER',
-          'COMPLETED',
-          'MISSED',
-        ];
-        if (!doctorStatuses.includes(req.body.status)) {
-          return res.status(400).json({ error: 'Invalid appointment status' });
-        }
-        appointment.status = req.body.status;
-      } else if (field === 'doctor_user_id') {
-        if (!mongoose.isValidObjectId(req.body[field])) {
-          return res.status(400).json({ error: 'Please select a valid doctor' });
-        }
-        const doctor = await User.findOne({
-          _id: req.body[field],
-          role: 'medecin',
-          email_verifie: { $ne: false },
-        }).select('_id');
-        if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
-        appointment.doctor = doctor._id;
-      } else if (field === 'start_date_time') {
-        const date = new Date(req.body[field]);
-        if (Number.isNaN(date.getTime())) {
-          return res.status(400).json({ error: 'Invalid appointment date' });
-        }
-        appointment[field] = date;
-      } else if (field === 'duration_minutes') {
-        const duration = Number(req.body[field]);
-        if (![15, 30, 45, 60].includes(duration)) {
-          return res.status(400).json({ error: 'Invalid appointment duration' });
-        }
-        appointment[field] = duration;
-      } else {
-        appointment[field] = req.body[field];
-      }
+    if (req.body.facility_name !== undefined) {
+      appointment.facility_name = req.body.facility_name;
+    }
+    if (req.body.facility_address !== undefined) {
+      appointment.facility_address = req.body.facility_address;
     }
 
     await appointment.save();
@@ -219,21 +169,22 @@ exports.update = async (req, res) => {
   }
 };
 
+// DELETE /appointments/:appointmentId
 exports.remove = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.appointmentId);
-    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
-    const user = await User.findById(req.userId).select('role');
-    const isDoctor =
-      user?.role === 'medecin' && appointment.doctor.toString() === req.userId;
-    const isPatient =
-      user?.role === 'patient' && appointment.patient.toString() === req.userId;
-    if (!isDoctor && !isPatient) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
+    const id = req.params.appointmentId || req.params.id;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(404).json({ error: 'Rendez-vous introuvable' });
     await appointment.deleteOne();
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
+
+// Aliases pour rétrocompatibilité
+exports.getAppointments = exports.listMine;
+exports.createAppointment = exports.create;
+exports.updateAppointment = exports.update;
+exports.deleteAppointment = exports.remove;
+exports.updateStatus = exports.update;

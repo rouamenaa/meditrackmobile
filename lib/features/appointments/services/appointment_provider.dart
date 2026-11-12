@@ -7,11 +7,13 @@ import '../models/appointment.dart';
 import '../models/appointment_status.dart';
 import '../models/health_facility.dart';
 import '../models/practitioner.dart';
+import 'appointment_api_service.dart';
 import 'appointment_service.dart';
 
 class AppointmentProvider extends ChangeNotifier {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
   final AppointmentService _appointmentService = AppointmentService();
+  final AppointmentApiService _apiService = AppointmentApiService.instance;
 
   List<Appointment> _appointments = [];
   List<Practitioner> _practitioners = [];
@@ -62,9 +64,6 @@ class AppointmentProvider extends ChangeNotifier {
   }
 
   /// Rendez-vous que le médecin connecté doit voir.
-  ///
-  /// Les rendez-vous du backend sont isolés par l'identifiant Mongo du médecin.
-  /// Le nom sert uniquement de repli pour les anciennes données locales.
   List<Appointment> appointmentsForDoctor(User user) {
     final name = _normalize(user.fullName);
     return _appointments.where((a) {
@@ -162,21 +161,40 @@ class AppointmentProvider extends ChangeNotifier {
     }
     final doctor = _practitionerFromApi(Map<String, dynamic>.from(doctorData));
     final practitioner = await _dbHelper.upsertDoctorPractitioner(doctor);
-    final facilityName = data['facility_name']?.toString();
-    final facilityAddress = data['facility_address']?.toString();
-    final facility = facilityName == null || facilityName.isEmpty
-        ? null
-        : HealthFacility(
+    final facilityName = data['facility_name']?.toString() ??
+        (data['facility'] is Map ? data['facility']['name']?.toString() : null);
+    final facilityAddress = data['facility_address']?.toString() ??
+        (data['facility'] is Map ? data['facility']['address']?.toString() : null);
+
+    HealthFacility? facility;
+    if (data['facility'] is Map) {
+      facility = HealthFacility.fromMap(
+        Map<String, dynamic>.from(data['facility'] as Map),
+      );
+    } else if (facilityName != null && facilityName.isNotEmpty) {
+      // Rechercher dans _facilities locale si existant pour récupérer latitude/longitude
+      final existing = _facilities.cast<HealthFacility?>().firstWhere(
+        (f) => f?.name.toLowerCase() == facilityName.toLowerCase(),
+        orElse: () => null,
+      );
+      facility = existing ??
+          HealthFacility(
             name: facilityName,
             type: 'Medical Office',
             address: facilityAddress ?? '',
           );
+    }
 
     return Appointment(
       remoteId: data['id']?.toString(),
       practitionerId: practitioner.id!,
       doctorUserId:
           data['doctor_user_id']?.toString() ?? practitioner.remoteUserId,
+      facilityId: facility?.id ??
+          (data['facility'] is Map
+              ? (data['facility']['id'] as num?)?.toInt()
+              : null) ??
+          (data['facility_id'] as num?)?.toInt(),
       patientId: data['patient_id']?.toString(),
       patientName: data['patient_name']?.toString(),
       startDateTime: DateTime.parse(data['start_date_time'].toString())
@@ -189,8 +207,8 @@ class AppointmentProvider extends ChangeNotifier {
       status: AppointmentStatus.fromString(data['status']?.toString()),
       practitioner: practitioner,
       facility: facility,
-      facilityName: facilityName,
-      facilityAddress: facilityAddress,
+      facilityName: facilityName ?? facility?.name,
+      facilityAddress: facilityAddress ?? facility?.fullAddress,
     );
   }
 
@@ -200,25 +218,23 @@ class AppointmentProvider extends ChangeNotifier {
 
   Future<bool> addAppointment(
     Appointment appointment, {
-    required User user,
+    User? user,
   }) async {
     try {
-      if (!user.isPatient) {
-        _errorMessage = 'Only patients can book appointments';
-        notifyListeners();
-        return false;
-      }
-      final doctorId =
-          appointment.doctorUserId ??
+      // 1. Sauvegarde locale dans SQLite
+      await _dbHelper.insertAppointment(appointment);
+
+      // 2. Synchronisation avec le backend MongoDB
+      final doctorId = appointment.doctorUserId ??
           _doctorIdForPractitioner(appointment.practitionerId);
-      if (doctorId == null || doctorId.isEmpty) {
-        _errorMessage = 'Please select a registered doctor';
-        notifyListeners();
-        return false;
+      if (doctorId != null) {
+        await _appointmentService.createAppointment(
+          _appointmentPayload(appointment, doctorId),
+        );
+      } else {
+        await _apiService.createAppointment(appointment);
       }
-      await _appointmentService.createAppointment(
-        _appointmentPayload(appointment, doctorId),
-      );
+
       await loadAll(user: user);
       return true;
     } on ApiException catch (e) {
@@ -234,27 +250,23 @@ class AppointmentProvider extends ChangeNotifier {
 
   Future<bool> updateAppointment(
     Appointment appointment, {
-    required User user,
+    User? user,
   }) async {
     try {
       final remoteId = appointment.remoteId;
-      if (remoteId == null) {
-        _errorMessage = 'This appointment is not linked to a server record';
-        notifyListeners();
-        return false;
+      if (remoteId != null) {
+        final doctorId =
+            appointment.doctorUserId ??
+            _doctorIdForPractitioner(appointment.practitionerId);
+        if (doctorId != null) {
+          await _appointmentService.updateAppointment(
+            remoteId,
+            _appointmentPayload(appointment, doctorId),
+          );
+        }
+      } else if (appointment.id != null) {
+        await _dbHelper.updateAppointment(appointment);
       }
-      final doctorId =
-          appointment.doctorUserId ??
-          _doctorIdForPractitioner(appointment.practitionerId);
-      if (doctorId == null) {
-        _errorMessage = 'Please select a registered doctor';
-        notifyListeners();
-        return false;
-      }
-      await _appointmentService.updateAppointment(
-        remoteId,
-        _appointmentPayload(appointment, doctorId),
-      );
       await loadAll(user: user);
       return true;
     } on ApiException catch (e) {
@@ -272,18 +284,28 @@ class AppointmentProvider extends ChangeNotifier {
     Appointment appointment,
     String doctorId,
   ) {
-    final facility = _facilityForId(appointment.facilityId);
+    final facility =
+        appointment.facility ?? _facilityForId(appointment.facilityId);
     return {
       'doctor_user_id': doctorId,
+      'doctor': doctorId,
+      'practitioner': appointment.practitioner?.toMap() ?? {
+        'id': appointment.practitionerId,
+      },
       'start_date_time': appointment.startDateTime.toUtc().toIso8601String(),
+      'startDateTime': appointment.startDateTime.toUtc().toIso8601String(),
       'duration_minutes': appointment.durationMinutes,
+      'durationMinutes': appointment.durationMinutes,
       'reason': appointment.reason,
       'notes': appointment.notes ?? '',
       'modality': appointment.modality,
       'video_url': appointment.videoUrl,
+      'videoUrl': appointment.videoUrl,
       'facility_name': appointment.facilityName ?? facility?.name ?? '',
       'facility_address':
           appointment.facilityAddress ?? facility?.fullAddress ?? '',
+      'facility_id': appointment.facilityId ?? facility?.id,
+      'facility': facility?.toMap(),
       'status': appointment.status.name,
     };
   }
@@ -305,12 +327,13 @@ class AppointmentProvider extends ChangeNotifier {
 
   Future<bool> deleteAppointment(
     Appointment appointment, {
-    required User user,
+    User? user,
   }) async {
     try {
       if (appointment.remoteId == null) {
-        if (appointment.id == null) return false;
-        await _dbHelper.deleteAppointment(appointment.id!);
+        if (appointment.id != null) {
+          await _dbHelper.deleteAppointment(appointment.id!);
+        }
       } else {
         await _appointmentService.deleteAppointment(appointment.remoteId!);
       }
@@ -330,12 +353,13 @@ class AppointmentProvider extends ChangeNotifier {
   Future<bool> changeStatus(
     Appointment appointment,
     AppointmentStatus status, {
-    required User user,
+    User? user,
   }) async {
     try {
       if (appointment.remoteId == null) {
-        if (appointment.id == null) return false;
-        await _dbHelper.updateAppointmentStatus(appointment.id!, status);
+        if (appointment.id != null) {
+          await _dbHelper.updateAppointmentStatus(appointment.id!, status);
+        }
       } else {
         await _appointmentService.updateAppointment(appointment.remoteId!, {
           'status': status.name,
