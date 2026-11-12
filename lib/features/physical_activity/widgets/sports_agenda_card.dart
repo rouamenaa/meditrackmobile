@@ -88,12 +88,12 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
     final minute = dt.minute.toString().padLeft(2, '0');
 
     if (target == today) {
-      return "Aujourd'hui à $hour:$minute";
+      return "Today at $hour:$minute";
     }
     if (target == today.add(const Duration(days: 1))) {
-      return "Demain à $hour:$minute";
+      return "Tomorrow at $hour:$minute";
     }
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} à $hour:$minute';
+    return '${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} at $hour:$minute';
   }
 
   @override
@@ -164,7 +164,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'MON AGENDA SPORTIF',
+                            'MY WORKOUT AGENDA',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
@@ -174,7 +174,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'Calendrier des activités',
+                            'Activity Calendar',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
@@ -194,7 +194,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                       child: Text(
                         _loading
                             ? '...'
-                            : '$thisMonthCount ce mois',
+                            : '$thisMonthCount this month',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -235,7 +235,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                                   Row(
                                     children: [
                                       Text(
-                                        nextActivity.type,
+                                        nextActivity.typeLabel,
                                         style: const TextStyle(
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.bold,
@@ -301,7 +301,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
-                                'Consultez vos séances passées et planifiez vos prochaines activités.',
+                                'View your past workouts and schedule upcoming activities.',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: kTextSecondary,
@@ -322,7 +322,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                     onPressed: _handleOpen,
                     icon: const Icon(Icons.calendar_month_rounded, size: 18),
                     label: const Text(
-                      'Ouvrir mon agenda sportif',
+                      'Open workout agenda',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
                     ),

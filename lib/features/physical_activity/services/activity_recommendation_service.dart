@@ -37,20 +37,20 @@ class ActivityRecommendationService {
 
     // Avertissement médical déontologique personnalisé
     final String? medicalNotice = hasCondition
-        ? 'Avis médical préalable : Compte tenu de votre condition médicale déclarée ($medicalCondition), demandez impérativement validation à votre médecin traitant avant de débuter ce programme.'
+        ? 'Prior medical consultation: Given your reported medical condition ($medicalCondition), please consult your attending physician before starting this program.'
         : (isSenior
-            ? 'Conseil senior : Échauffez-vous 5 à 10 minutes et privilégiez des gestes doux et progressifs.'
+            ? 'Senior tip: Warm up for 5 to 10 minutes and prioritize gentle, progressive movements.'
             : null);
 
     // Analyse de l'historique des activités
     final typeCounts = <String, int>{};
     for (final act in history) {
-      final t = act.type.trim();
+      final t = act.typeLabel;
       typeCounts[t] = (typeCounts[t] ?? 0) + 1;
     }
 
     // Sport le plus pratiqué par le patient
-    String preferredType = 'Marche';
+    String preferredType = 'Walking';
     int maxCount = 0;
     typeCounts.forEach((key, count) {
       if (count > maxCount) {
@@ -67,23 +67,23 @@ class ActivityRecommendationService {
     if (weeklyMinutes < 60) {
       // Profil débutant ou reprise après interruption
       const duration = 25;
-      const intensity = 'Faible';
+      const intensity = 'Low';
       recommendations.add(
         ActivityRecommendation(
           id: 'rec_starter_walk',
-          title: 'Marche active de remise en forme',
-          activityType: 'Marche',
+          title: 'Active fitness walking',
+          activityType: 'Walking',
           durationMinutes: duration,
           intensity: intensity,
           frequencyPerWeek: 3,
-          category: 'Reprise en douceur',
+          category: 'Gentle Restart',
           reason: weeklyMinutes == 0
-              ? 'Aucune séance enregistrée cette semaine. Une marche de 25 minutes est le point de départ idéal pour relancer votre énergie.'
-              : 'Vous avez cumulé $weeklyMinutes min cette semaine. Cette séance accessible vous permet d\'augmenter progressivement votre volume.',
+              ? 'No workouts logged this week. A 25-minute walk is the perfect starting point to re-energize your body.'
+              : 'You have logged $weeklyMinutes min this week. This accessible session lets you steadily build your activity volume.',
           description:
-              'Marchez d\'un bon pas régulier, respirer profondément et portez des chaussures confortables. Hydratez-vous avant et après.',
+              'Walk at a steady, brisk pace, breathe deeply, and wear comfortable footwear. Stay hydrated before and after.',
           estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
-            type: 'Marche',
+            type: 'Walking',
             durationMinutes: duration,
             intensity: intensity,
           ),
@@ -94,24 +94,24 @@ class ActivityRecommendationService {
       // En bonne voie vers l'objectif OMS de 150 min
       final remaining = 150 - weeklyMinutes;
       final suggestedDuration = remaining.clamp(30, 45);
-      final intensity = hasCondition ? 'Faible' : 'Modérée';
-      final activity = preferredType == 'Course' && !hasCondition && !isSenior
-          ? 'Course'
-          : (preferredType == 'Vélo' ? 'Vélo' : 'Marche');
+      final intensity = hasCondition ? 'Low' : 'Moderate';
+      final activity = preferredType == 'Running' && !hasCondition && !isSenior
+          ? 'Running'
+          : (preferredType == 'Cycling' ? 'Cycling' : 'Walking');
 
       recommendations.add(
         ActivityRecommendation(
           id: 'rec_who_progress',
-          title: 'Séance Objectif OMS (150 min/semaine)',
+          title: 'WHO Goal Session (150 min/week)',
           activityType: activity,
           durationMinutes: suggestedDuration,
           intensity: intensity,
           frequencyPerWeek: 3,
-          category: 'Progression OMS',
+          category: 'WHO Progression',
           reason:
-              'Vous avez déjà réalisé $weeklyMinutes min d\'activité cette semaine ! Il ne vous reste que $remaining min pour atteindre les 150 min recommandées par l\'OMS.',
+              'You have already completed $weeklyMinutes min of activity this week! Just $remaining min left to reach the WHO recommended 150 minutes.',
           description:
-              'Maintenez un rythme dynamique mais confortable permettant de parler sans essoufflement marqué.',
+              'Maintain a dynamic yet comfortable pace where you can still talk without gasping.',
           estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
             type: activity,
             durationMinutes: suggestedDuration,
@@ -123,20 +123,20 @@ class ActivityRecommendationService {
     } else {
       // Objectif OMS déjà atteint !
       const duration = 40;
-      final intensity = (hasCondition || isSenior) ? 'Modérée' : 'Élevée';
+      final intensity = (hasCondition || isSenior) ? 'Moderate' : 'High';
       recommendations.add(
         ActivityRecommendation(
           id: 'rec_who_achieved',
-          title: 'Séance de consolidation d\'endurance',
+          title: 'Endurance maintenance session',
           activityType: preferredType,
           durationMinutes: duration,
           intensity: intensity,
           frequencyPerWeek: 4,
-          category: 'Objectif OMS Atteint 🎯',
+          category: 'WHO Goal Achieved 🎯',
           reason:
-              'Félicitations ! Vous avez atteint votre objectif avec $weeklyMinutes min d\'activité cette semaine. Cette séance entretient votre capital cardio.',
+              'Congratulations! You reached your goal with $weeklyMinutes min of activity this week. This session sustains your cardiovascular fitness.',
           description:
-              'Séance de maintien à votre rythme de prédilection. Terminez par 5 minutes de retour au calme et d\'étirements.',
+              'Maintenance workout at your preferred pace. Finish with 5 minutes of cool-down and stretching.',
           estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
             type: preferredType,
             durationMinutes: duration,
@@ -150,29 +150,29 @@ class ActivityRecommendationService {
     // -------------------------------------------------------------------------
     // 2. RECOMMANDATION ARTICULAIRE ET CROISÉE (Cyclisme ou Natation)
     // -------------------------------------------------------------------------
-    final crossType = preferredType == 'Vélo' ? 'Natation' : 'Vélo';
+    final crossType = preferredType == 'Cycling' ? 'Swimming' : 'Cycling';
     const crossDuration = 35;
-    const crossIntensity = 'Modérée';
+    const crossIntensity = 'Moderate';
     recommendations.add(
       ActivityRecommendation(
         id: 'rec_cross_training',
-        title: crossType == 'Vélo'
-            ? 'Cyclisme doux pour préserver les articulations'
-            : 'Natation fluide et étirement dorsal',
+        title: crossType == 'Cycling'
+            ? 'Gentle cycling to protect joints'
+            : 'Fluid swimming and back stretch',
         activityType: crossType,
         durationMinutes: crossDuration,
-        intensity: hasCondition ? 'Faible' : crossIntensity,
+        intensity: hasCondition ? 'Low' : crossIntensity,
         frequencyPerWeek: 2,
-        category: 'Protection articulaire',
+        category: 'Joint Protection',
         reason:
-            'Pratiquer une activité portée comme le $crossType soulage les articulations et offre un excellent travail cardiovasculaire complémentaire.',
-        description: crossType == 'Vélo'
-            ? 'Pédalez à cadence souple (60-70 tours/min) sur parcours plat ou sur vélo d\'appartement.'
-            : 'Nagez à votre convenance (brasse ou crawl) en allongeant bien chaque mouvement.',
+            'Practicing a low-impact activity like $crossType relieves joint strain while providing excellent complementary cardiovascular benefits.',
+        description: crossType == 'Cycling'
+            ? 'Pedal at a smooth cadence (60-70 rpm) on flat terrain or a stationary bike.'
+            : 'Swim comfortably (breaststroke or freestyle), fully extending each stroke.',
         estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
           type: crossType,
           durationMinutes: crossDuration,
-          intensity: hasCondition ? 'Faible' : crossIntensity,
+          intensity: hasCondition ? 'Low' : crossIntensity,
         ),
         medicalAdvice: medicalNotice,
       ),
@@ -181,25 +181,25 @@ class ActivityRecommendationService {
     // -------------------------------------------------------------------------
     // 3. RECOMMANDATION CARDIO FRACTIONNÉ OU MARCHE DYNAMIQUE
     // -------------------------------------------------------------------------
-    if (!hasCondition && !isSenior && (weeklyMinutes >= 60 || preferredType == 'Course')) {
+    if (!hasCondition && !isSenior && (weeklyMinutes >= 60 || preferredType == 'Running')) {
       const runDuration = 30;
       recommendations.add(
         ActivityRecommendation(
           id: 'rec_interval_cardio',
-          title: 'Endurance fondamentale & Fractionné léger',
-          activityType: 'Course',
+          title: 'Aerobic base & Light intervals',
+          activityType: 'Running',
           durationMinutes: runDuration,
-          intensity: 'Modérée',
+          intensity: 'Moderate',
           frequencyPerWeek: 2,
-          category: 'Renforcement cardio',
+          category: 'Cardio Strengthening',
           reason:
-              'Votre historique montre une bonne régularité. Une séance alternant course à allure modérée stimule le système cardiorespiratoire.',
+              'Your history shows consistent dedication. Alternating moderate-pace running stimulates your cardiorespiratory system.',
           description:
-              'Échauffez-vous 10 min en marche, puis courez à une allure où vous pourriez tenir une conversation. Finissez en marchant.',
+              'Warm up for 10 min walking, then run at a conversational pace. Finish with a brisk walk.',
           estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
-            type: 'Course',
+            type: 'Running',
             durationMinutes: runDuration,
-            intensity: 'Modérée',
+            intensity: 'Moderate',
           ),
           medicalAdvice: medicalNotice,
         ),
@@ -209,20 +209,20 @@ class ActivityRecommendationService {
       recommendations.add(
         ActivityRecommendation(
           id: 'rec_interval_walk',
-          title: 'Marche avec variations d\'allure',
-          activityType: 'Marche',
+          title: 'Paced walking session',
+          activityType: 'Walking',
           durationMinutes: walkDuration,
-          intensity: 'Modérée',
+          intensity: 'Moderate',
           frequencyPerWeek: 3,
-          category: 'Vitalité quotidienne',
+          category: 'Daily Vitality',
           reason:
-              'Idéale pour stimuler la circulation sans risque cardiaque excessif. Adaptée à votre profil de santé.',
+              'Ideal for stimulating circulation without excess cardiac strain. Tailored to your health profile.',
           description:
-              'Alternez 4 minutes de marche normale et 1 minute de marche soutenue, répétées 6 fois.',
+              'Alternate 4 minutes of normal walking and 1 minute of brisk walking, repeated 6 times.',
           estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
-            type: 'Marche',
+            type: 'Walking',
             durationMinutes: walkDuration,
-            intensity: 'Modérée',
+            intensity: 'Moderate',
           ),
           medicalAdvice: medicalNotice,
         ),
@@ -236,20 +236,20 @@ class ActivityRecommendationService {
     recommendations.add(
       ActivityRecommendation(
         id: 'rec_muscle_tone',
-        title: 'Gymnastique douce, posture & équilibre',
-        activityType: 'Autre',
+        title: 'Gentle gymnastics, posture & balance',
+        activityType: 'Other',
         durationMinutes: tonusDuration,
-        intensity: 'Faible',
+        intensity: 'Low',
         frequencyPerWeek: 2,
-        category: 'Équilibre & Mobilité',
+        category: 'Balance & Mobility',
         reason:
-            'Le maintien de la masse musculaire et de l\'équilibre prévient les blessures et renforce les effets bénéfiques du cardio.',
+            'Maintaining muscle tone and balance prevents injuries and amplifies the benefits of cardio exercise.',
         description:
-            'Mouvements d\'assouplissement, gainage doux et respiration ventrale. Réalisable au sol sur tapis ou avec une chaise.',
+            'Gentle stretching, core stability, and deep breathing. Can be done on an exercise mat or seated on a chair.',
         estimatedCalories: PhysicalActivity.calculateEstimatedCalories(
-          type: 'Autre',
+          type: 'Other',
           durationMinutes: tonusDuration,
-          intensity: 'Faible',
+          intensity: 'Low',
         ),
         medicalAdvice: medicalNotice,
       ),
@@ -272,8 +272,8 @@ class ActivityRecommendationService {
           final quote = first['q'] as String?;
           if (quote != null && quote.isNotEmpty) {
             return [
-              'Conseil motivation : "$quote"',
-              'Recommandation OMS : Pratiquez au moins 150 minutes d\'activité d\'intensité modérée par semaine.',
+              'Motivational tip: "$quote"',
+              'WHO Recommendation: Practice at least 150 minutes of moderate-intensity activity per week.',
             ];
           }
         }
@@ -284,10 +284,10 @@ class ActivityRecommendationService {
 
     // Repli de conseils médicaux fiables et vérifiés
     return const [
-      'Recommandation OMS : Visez au moins 150 minutes d\'activité physique d\'intensité modérée par semaine pour réduire le risque cardiovasculaire de 30%.',
-      'Hydratation : Buvez quelques gorgées d\'eau avant, pendant et après chaque séance.',
-      'Régularité : Mieux vaut 3 séances de 20 minutes qu\'une seule séance de 60 minutes le week-end.',
-      'Sécurité : Si vous ressentez une douleur inhabituelle, des vertiges ou un essoufflement anormal, stoppez l\'exercice et consultez votre médecin.',
+      'WHO Recommendation: Aim for at least 150 minutes of moderate-intensity physical activity per week to reduce cardiovascular risk by 30%.',
+      'Hydration: Drink a few sips of water before, during, and after each session.',
+      'Consistency: Three 20-minute sessions are better than one single 60-minute session on the weekend.',
+      'Safety: If you experience unusual pain, dizziness, or abnormal shortness of breath, stop exercising and consult your doctor.',
     ];
   }
 }

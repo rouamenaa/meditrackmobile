@@ -50,9 +50,9 @@ class AppointmentApiService {
       final body = jsonEncode({
         'practitioner': appointment.practitioner?.toMap() ?? {
           'id': appointment.practitionerId,
-          'lastName': 'Praticien',
+          'lastName': 'Practitioner',
           'firstName': '#${appointment.practitionerId}',
-          'specialty': 'Général',
+          'specialty': 'General',
         },
         if (appointment.facility != null) ...{
           'facility': appointment.facility!.toMap(),

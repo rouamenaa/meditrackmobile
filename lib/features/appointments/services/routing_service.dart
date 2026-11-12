@@ -73,7 +73,7 @@ class RoutingService {
     required double destLng,
     String? destinationLabel,
   }) async {
-    final label = Uri.encodeComponent(destinationLabel ?? 'Lieu du rendez-vous');
+    final label = Uri.encodeComponent(destinationLabel ?? 'Appointment location');
     
     // 1. Essai avec le protocole direct Google Maps navigation
     final googleMapsAppUrl = Uri.parse('google.navigation:q=$destLat,$destLng');

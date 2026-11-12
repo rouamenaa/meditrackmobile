@@ -35,9 +35,9 @@ String fmtDate(DateTime d) =>
 String fmtTime(DateTime d) =>
     '${d.hour}:${d.minute.toString().padLeft(2, '0')}';
 
-/// "Mercredi 12 août"
+/// "Wednesday, Aug 12"
 String fmtDateLettres(DateTime d) =>
-    '${_jours[d.weekday - 1]} ${d.day} ${_mois[d.month - 1]}';
+    '${_jours[d.weekday - 1]}, ${_mois[d.month - 1]} ${d.day}';
 
 /// "Aujourd'hui à 20:00" / "Demain à 08:00" / "Lundi 3 sept. à 08:00"
 String fmtProchainePrise(DateTime? next, DateTime now) {

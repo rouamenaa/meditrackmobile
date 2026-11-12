@@ -64,7 +64,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Préférences de rappels mises à jour avec succès'),
+        content: Text('Reminder preferences updated successfully'),
         backgroundColor: Color(0xFF0B6B5D),
         behavior: SnackBarBehavior.floating,
       ),
@@ -78,7 +78,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Notification test envoyée (rappel 5 min avant) !',
+          'Test notification sent (5 min reminder)!',
         ),
         backgroundColor: Color(0xFF0B6B5D),
         behavior: SnackBarBehavior.floating,
@@ -92,7 +92,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
     final year = dt.year;
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year à $hour:$minute';
+    return '$month/$day/$year at $hour:$minute';
   }
 
   String _formatTimeOnly(DateTime dt) {
@@ -120,7 +120,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
       backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text(
-          'Notifications intelligentes',
+          'Smart Reminders',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -146,7 +146,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Les anciens rappels fixes quotidiens ont été supprimés. Les notifications sont désormais déclenchées automatiquement 5 minutes avant chaque séance réelle programmée.',
+                      'Legacy fixed daily reminders have been removed. Notifications are now automatically triggered 5 minutes before each scheduled session.',
                       style: TextStyle(
                         fontSize: 12.5,
                         color: Colors.blue.shade900,
@@ -161,7 +161,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
 
             // 2. Carte Activation des rappels de séances (5 min avant)
             _buildCard(
-              title: 'Rappels de séance (-5 minutes)',
+              title: 'Workout reminders (-5 minutes)',
               icon: Icons.timer_outlined,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,14 +169,14 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Activer les notifications automatiques',
+                      'Enable automatic notifications',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: kNavy,
                       ),
                     ),
                     subtitle: const Text(
-                      'Recevoir une notification 5 minutes avant chaque séance créée',
+                      'Receive a notification 5 minutes before each scheduled session',
                       style: TextStyle(fontSize: 12.5),
                     ),
                     value: _settings.enabled,
@@ -194,7 +194,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                           size: 16, color: kPrimaryGreen),
                       const SizedBox(width: 8),
                       Text(
-                        'Délai avant séance : ${_settings.leadTimeMinutes} minutes',
+                        'Notice before session: ${_settings.leadTimeMinutes} minutes',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -210,7 +210,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
 
             // 3. Carte des prochaines séances programmées et leurs rappels
             _buildCard(
-              title: 'Séances à venir (${_upcomingActivities.length})',
+              title: 'Upcoming workouts (${_upcomingActivities.length})',
               icon: Icons.event_available_rounded,
               child: _upcomingActivities.isEmpty
                   ? Padding(
@@ -222,7 +222,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Aucune séance future planifiée. Ajoutez une séance (ex: marche demain à 10h) pour recevoir un rappel automatique 5 minutes avant.',
+                              'No upcoming workouts scheduled. Add a workout (e.g. walk tomorrow at 10:00) to receive an automatic reminder 5 minutes before.',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey.shade600,
@@ -268,7 +268,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${activity.type} (${activity.durationMinutes} min)',
+                                      '${activity.typeLabel} (${activity.durationMinutes} min)',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -298,16 +298,16 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                                         const SizedBox(width: 4),
                                         Text(
                                           isReminderFuture && _settings.enabled
-                                              ? 'Rappel prévu à ${_formatTimeOnly(reminderTime)}'
+                                              ? 'Reminder scheduled at ${_formatTimeOnly(reminderTime)}'
                                               : (isReminderFuture
-                                                  ? 'Rappels désactivés'
-                                                  : 'Rappel dépassé'),
+                                                  ? 'Reminders disabled'
+                                                  : 'Reminder passed'),
                                           style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w600,
                                             color: isReminderFuture && _settings.enabled
-                                                ? kPrimaryGreen
-                                                : Colors.grey.shade600,
+                                              ? kPrimaryGreen
+                                              : Colors.grey.shade600,
                                           ),
                                         ),
                                       ],
@@ -329,7 +329,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
               icon: const Icon(Icons.notification_important_outlined,
                   color: kPrimaryGreen),
               label: const Text(
-                'Tester la notification (-5 min)',
+                'Test notification (-5 min)',
                 style: TextStyle(
                   color: kPrimaryGreen,
                   fontWeight: FontWeight.bold,
@@ -367,7 +367,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                       ),
                     )
                   : const Text(
-                      'Enregistrer les préférences',
+                      'Save preferences',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

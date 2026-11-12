@@ -19,7 +19,7 @@ class ActivityCard extends StatelessWidget {
     final year = dt.year;
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year à $hour:$minute';
+    return '$month/$day/$year at $hour:$minute';
   }
 
   @override
@@ -66,7 +66,7 @@ class ActivityCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          activity.type,
+                          activity.typeLabel,
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
@@ -101,7 +101,7 @@ class ActivityCard extends StatelessWidget {
                                         size: 11, color: kPrimaryGreen),
                                     SizedBox(width: 3),
                                     Text(
-                                      'Rappel -5 min',
+                                      'Reminder -5 min',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -127,7 +127,7 @@ class ActivityCard extends StatelessWidget {
                           color: intensityColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      activity.intensity,
+                      activity.intensityLabel,
                       style: TextStyle(
                         color: intensityColor,
                         fontSize: 11.5,
@@ -156,7 +156,7 @@ class ActivityCard extends StatelessWidget {
                             Icon(Icons.edit_outlined,
                                 size: 19, color: kPrimaryGreen),
                             SizedBox(width: 10),
-                            Text('Modifier'),
+                            Text('Edit'),
                           ],
                         ),
                       ),
@@ -167,7 +167,7 @@ class ActivityCard extends StatelessWidget {
                             Icon(Icons.delete_outline,
                                 size: 19, color: Colors.redAccent),
                             SizedBox(width: 10),
-                            Text('Supprimer',
+                            Text('Delete',
                                 style: TextStyle(color: Colors.redAccent)),
                           ],
                         ),
@@ -195,14 +195,18 @@ class ActivityCard extends StatelessWidget {
                     ),
                   if (activity.paceLabel != null &&
                       (activity.type.toLowerCase().contains('marche') ||
-                          activity.type.toLowerCase().contains('course')))
+                          activity.type.toLowerCase().contains('course') ||
+                          activity.type.toLowerCase().contains('walk') ||
+                          activity.type.toLowerCase().contains('run')))
                     _buildMetric(
                       icon: Icons.speed_rounded,
                       label: activity.paceLabel!,
                       color: const Color(0xFF0058BD),
                     ),
                   if (activity.speedKmh != null &&
-                      activity.type.toLowerCase().contains('vélo'))
+                      (activity.type.toLowerCase().contains('vélo') ||
+                          activity.type.toLowerCase().contains('velo') ||
+                          activity.type.toLowerCase().contains('cycl')))
                     _buildMetric(
                       icon: Icons.speed_rounded,
                       label: '${activity.speedKmh!.toStringAsFixed(1)} km/h',

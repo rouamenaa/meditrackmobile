@@ -47,17 +47,17 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
   int? _suggestedCalories;
 
   final List<(String, IconData)> _activityTypes = const [
-    ('Marche', Icons.directions_walk_rounded),
-    ('Course', Icons.directions_run_rounded),
-    ('Vélo', Icons.directions_bike_rounded),
-    ('Natation', Icons.pool_rounded),
-    ('Autre', Icons.fitness_center_rounded),
+    ('Walking', Icons.directions_walk_rounded),
+    ('Running', Icons.directions_run_rounded),
+    ('Cycling', Icons.directions_bike_rounded),
+    ('Swimming', Icons.pool_rounded),
+    ('Other', Icons.fitness_center_rounded),
   ];
 
   final List<(String, Color)> _intensities = const [
-    ('Faible', Color(0xFF2E7D32)),
-    ('Modérée', Color(0xFFEF6C00)),
-    ('Élevée', Color(0xFFC62828)),
+    ('Low', Color(0xFF2E7D32)),
+    ('Moderate', Color(0xFFEF6C00)),
+    ('High', Color(0xFFC62828)),
   ];
 
   bool get _isEditMode => widget.activityToEdit != null;
@@ -68,10 +68,10 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     final item = widget.activityToEdit;
 
     if (item != null) {
-      _selectedType = _activityTypes.any((t) => t.$1 == item.type) ? item.type : 'Autre';
-      _selectedIntensity = _intensities.any((i) => i.$1 == item.intensity)
-          ? item.intensity
-          : 'Modérée';
+      final t = item.typeLabel;
+      _selectedType = _activityTypes.any((x) => x.$1 == t) ? t : 'Other';
+      final i = item.intensityLabel;
+      _selectedIntensity = _intensities.any((x) => x.$1 == i) ? i : 'Moderate';
       _selectedDate = item.activityDate;
       _selectedTime = TimeOfDay.fromDateTime(item.activityDate);
       _durationController.text = item.durationMinutes.toString();
@@ -81,14 +81,46 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       _caloriesController.text =
           item.caloriesBurned != null ? item.caloriesBurned.toString() : '';
     } else {
-      _selectedType = widget.initialType != null &&
-              _activityTypes.any((t) => t.$1 == widget.initialType)
-          ? widget.initialType!
-          : 'Marche';
-      _selectedIntensity = widget.initialIntensity != null &&
-              _intensities.any((i) => i.$1 == widget.initialIntensity)
-          ? widget.initialIntensity!
-          : 'Modérée';
+      String initT = widget.initialType ?? 'Walking';
+      switch (initT.trim().toLowerCase()) {
+        case 'marche':
+        case 'walking':
+          initT = 'Walking';
+          break;
+        case 'course':
+        case 'running':
+          initT = 'Running';
+          break;
+        case 'vélo':
+        case 'velo':
+        case 'cycling':
+          initT = 'Cycling';
+          break;
+        case 'natation':
+        case 'swimming':
+          initT = 'Swimming';
+          break;
+        default:
+          initT = 'Other';
+      }
+      _selectedType = initT;
+
+      String initI = widget.initialIntensity ?? 'Moderate';
+      switch (initI.trim().toLowerCase()) {
+        case 'faible':
+        case 'low':
+          initI = 'Low';
+          break;
+        case 'élevée':
+        case 'elevee':
+        case 'high':
+          initI = 'High';
+          break;
+        default:
+          initI = 'Moderate';
+      }
+      _selectedIntensity = initI;
+
       _selectedDate = widget.initialDate ?? DateTime.now();
       _selectedTime = widget.initialDate != null
           ? TimeOfDay.fromDateTime(widget.initialDate!)
@@ -233,12 +265,12 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       final String message;
       if (_isEditMode) {
         message = reminderScheduled
-            ? 'Activité modifiée. Rappel programmé 5 min avant !'
-            : 'Activité modifiée avec succès';
+            ? 'Activity updated. Reminder set 5 min before!'
+            : 'Activity updated successfully';
       } else {
         message = reminderScheduled
-            ? 'Activité enregistrée. Rappel programmé 5 min avant !'
-            : 'Activité enregistrée avec succès';
+            ? 'Activity saved. Reminder set 5 min before!'
+            : 'Activity saved successfully';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -264,7 +296,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de l\'enregistrement : $e'),
+          content: Text('Error saving activity: $e'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -277,14 +309,14 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     const kNavy = Color(0xFF0A2540);
 
     final formattedDate =
-        '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}';
+        '${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.year}';
     final formattedTime =
         '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isEditMode ? 'Modifier l\'activité' : 'Nouvelle activité',
+          _isEditMode ? 'Edit Activity' : 'New Activity',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -302,7 +334,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
               children: [
                 // 1. Type d'activité (Chips visuels)
                 const Text(
-                  'Type d\'activité *',
+                  'Activity type *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -348,7 +380,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 2. Date et Heure de l'activité
                 const Text(
-                  'Date et heure de la séance *',
+                  'Session date and time *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -446,7 +478,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Séance future : une notification vous sera envoyée 5 min avant (${_selectedDate.subtract(const Duration(minutes: 5)).hour.toString().padLeft(2, '0')}:${_selectedDate.subtract(const Duration(minutes: 5)).minute.toString().padLeft(2, '0')}).',
+                            'Upcoming session: a notification will be sent 5 min before (${_selectedDate.subtract(const Duration(minutes: 5)).hour.toString().padLeft(2, '0')}:${_selectedDate.subtract(const Duration(minutes: 5)).minute.toString().padLeft(2, '0')}).',
                             style: const TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
@@ -469,7 +501,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Durée *',
+                            'Duration *',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -481,14 +513,14 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                             controller: _durationController,
                             keyboardType: TextInputType.number,
                             decoration: _inputDecoration(
-                              hint: 'Ex: 45',
+                              hint: 'e.g. 45',
                               icon: Icons.timer_outlined,
                               suffixText: 'min',
                             ),
                             onChanged: (_) => _recomputeCaloriesEstimate(),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Durée requise';
+                                return 'Duration is required';
                               }
                               final parsed = int.tryParse(value.trim());
                               if (parsed == null || parsed <= 0) {
@@ -509,7 +541,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Distance (optionnelle)',
+                            'Distance (optional)',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -521,7 +553,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                             controller: _distanceController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: _inputDecoration(
-                              hint: 'Ex: 5.5',
+                              hint: 'e.g. 5.5',
                               icon: Icons.route_outlined,
                               suffixText: 'km',
                             ),
@@ -529,7 +561,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                               if (value == null || value.trim().isEmpty) return null;
                               final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
                               if (parsed == null || parsed < 0) {
-                                return 'Distance invalide';
+                                return 'Invalid distance';
                               }
                               return null;
                             },
@@ -543,7 +575,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 4. Intensité (ChoiceChips colorés)
                 const Text(
-                  'Intensité de l\'effort *',
+                  'Effort intensity *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -595,7 +627,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Calories brûlées (kcal)',
+                      'Calories burned (kcal)',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -607,7 +639,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                         onPressed: _applySuggestedCalories,
                         icon: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFEF6C00)),
                         label: Text(
-                          'Suggéré: ~$_suggestedCalories kcal',
+                          'Suggested: ~$_suggestedCalories kcal',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -627,7 +659,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   controller: _caloriesController,
                   keyboardType: TextInputType.number,
                   decoration: _inputDecoration(
-                    hint: _suggestedCalories != null ? 'Ex: $_suggestedCalories' : 'Ex: 250',
+                    hint: _suggestedCalories != null ? 'e.g. $_suggestedCalories' : 'e.g. 250',
                     icon: Icons.local_fire_department_outlined,
                     suffixText: 'kcal',
                   ),
@@ -635,7 +667,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     if (value == null || value.trim().isEmpty) return null;
                     final parsed = int.tryParse(value.trim());
                     if (parsed == null || parsed < 0) {
-                      return 'Nombre de calories invalide';
+                      return 'Invalid calorie amount';
                     }
                     return null;
                   },
@@ -644,7 +676,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
                 // 6. Notes
                 const Text(
-                  'Notes / Sensations (optionnel)',
+                  'Notes / Sensations (optional)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -656,7 +688,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   controller: _notesController,
                   maxLines: 3,
                   decoration: _inputDecoration(
-                    hint: 'Sensations, parcours, essoufflement...',
+                    hint: 'Feelings, route, breathing, effort...',
                     icon: Icons.edit_note_rounded,
                   ),
                 ),
@@ -684,7 +716,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                           ),
                         )
                       : Text(
-                          _isEditMode ? 'Enregistrer les modifications' : 'Ajouter l\'activité',
+                          _isEditMode ? 'Save changes' : 'Add activity',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -698,7 +730,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     foregroundColor: Colors.grey.shade700,
                   ),
-                  child: const Text('Annuler', style: TextStyle(fontSize: 15)),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 15)),
                 ),
               ],
             ),

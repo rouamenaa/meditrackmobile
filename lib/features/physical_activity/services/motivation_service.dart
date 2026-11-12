@@ -26,54 +26,54 @@ class MotivationService {
   static const String _todayApiUrl = 'https://zenquotes.io/api/today';
   static const String _randomApiUrl = 'https://zenquotes.io/api/random';
 
-  /// Liste de repli de conseils et citations sport-santé / bien-être en français
+  /// Liste de repli de conseils et citations sport-santé / bien-être en anglais
   static const List<DailyMotivation> fallbackQuotes = [
     DailyMotivation(
-      quote: 'La marche est le meilleur remède de l’homme.',
-      author: 'Hippocrate',
-      category: 'Santé & Longévité',
+      quote: 'Walking is man’s best medicine.',
+      author: 'Hippocrates',
+      category: 'Health & Longevity',
       isFromApi: false,
     ),
     DailyMotivation(
       quote:
-          'Prenez soin de votre corps. C’est le seul endroit où vous êtes obligé de vivre.',
+          'Take care of your body. It’s the only place you have to live.',
       author: 'Jim Rohn',
-      category: 'Bien-être corporel',
+      category: 'Physical Well-being',
       isFromApi: false,
     ),
     DailyMotivation(
       quote:
-          'Chaque pas fait du bien à votre cœur. Il n’y a aucun mouvement trop modeste pour votre santé.',
-      author: 'Conseil MediTrack',
-      category: 'Motivation Sport-Santé',
+          'Every step does your heart good. No movement is too small for your health.',
+      author: 'MediTrack Tip',
+      category: 'Health & Fitness Motivation',
       isFromApi: false,
     ),
     DailyMotivation(
       quote:
-          'L’activité physique libère des endorphines naturelles qui apaisent le stress et élèvent le moral.',
-      author: 'Organisation Mondiale de la Santé (OMS)',
-      category: 'Santé mentale & Sérénité',
+          'Physical activity releases natural endorphins that relieve stress and boost mood.',
+      author: 'World Health Organization (WHO)',
+      category: 'Mental Health & Serenity',
       isFromApi: false,
     ),
     DailyMotivation(
       quote:
-          'La persévérance n’est pas une longue course ; c’est plusieurs petits pas accomplis jour après jour.',
+          'Perseverance is not a long race; it is many short steps taken day after day.',
       author: 'Walter Elliot',
-      category: 'Persévérance',
+      category: 'Perseverance',
       isFromApi: false,
     ),
     DailyMotivation(
       quote:
-          'Une marche de 20 minutes aujourd’hui vaut infiniment plus que mille intentions parfaites pour demain.',
-      author: 'Accompagnement MediTrack',
-      category: 'Régularité & Énergie',
+          'A 20-minute walk today is worth far more than a thousand perfect intentions for tomorrow.',
+      author: 'MediTrack Coaching',
+      category: 'Consistency & Energy',
       isFromApi: false,
     ),
     DailyMotivation(
       quote:
-          'Écoutez votre corps avec bienveillance. Avancez à votre rythme, sans comparaison.',
-      author: 'Médecine Préventive',
-      category: 'Bienveillance & Écoute',
+          'Listen to your body with kindness. Move at your own pace without comparison.',
+      author: 'Preventive Medicine',
+      category: 'Mindfulness & Care',
       isFromApi: false,
     ),
   ];

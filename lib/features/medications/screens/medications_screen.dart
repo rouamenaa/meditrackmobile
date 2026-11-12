@@ -106,13 +106,13 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         elevation: 0,
         centerTitle: false,
         title: const Text(
-          'Mes médicaments',
+          'My Medications',
           style: TextStyle(
               color: kTextDark, fontWeight: FontWeight.w800, fontSize: 18),
         ),
         actions: [
           IconButton(
-            tooltip: 'Nouveau médicament',
+            tooltip: 'New medication',
             icon: const Icon(Icons.add_circle_rounded, color: kPrimary),
             onPressed: () => _openForm(),
           ),
@@ -127,7 +127,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: kPrimary,
         foregroundColor: Colors.white,
-        tooltip: 'Ajouter un médicament',
+        tooltip: 'Add a medication',
         onPressed: () => _openForm(),
         child: const Icon(Icons.add),
       ),
@@ -143,7 +143,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         controller: _searchCtrl,
         onChanged: _onSearch,
         decoration: InputDecoration(
-          hintText: 'Rechercher un médicament…',
+          hintText: 'Search for a medication…',
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
           prefixIcon: const Icon(Icons.search, color: kMuted),
           suffixIcon: _query.isNotEmpty
@@ -179,7 +179,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               child: CircularProgressIndicator(color: kPrimary));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Erreur : ${snapshot.error}'));
+          return Center(child: Text('Error: ${snapshot.error}'));
         }
         final meds = snapshot.data!;
         if (meds.isEmpty) return _emptyState();
@@ -213,8 +213,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           const SizedBox(height: 16),
           Text(
             _query.isEmpty
-                ? 'Aucun médicament enregistré'
-                : 'Aucun résultat pour "$_query"',
+                ? 'No medications saved'
+                : 'No results for "$_query"',
             style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
@@ -223,8 +223,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           const SizedBox(height: 8),
           Text(
             _query.isEmpty
-                ? 'Appuyez sur + pour ajouter votre premier médicament.'
-                : 'Essayez un autre terme de recherche.',
+                ? 'Tap + to add your first medication.'
+                : 'Try another search term.',
             style: const TextStyle(color: kMuted, fontSize: 13),
             textAlign: TextAlign.center,
           ),
@@ -292,12 +292,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                             ),
                           ),
                           if (hasExpired)
-                            _badge('Expiré', kRedSoft, const Color(0xFFDC2626))
+                            _badge('Expired', kRedSoft, const Color(0xFFDC2626))
                           else if (isExpiringSoon)
-                            _badge('Expire bientôt', kOrangeSoft,
+                            _badge('Expiring soon', kOrangeSoft,
                                 const Color(0xFFD97706))
                           else if (hasLowStock)
-                            _badge('Stock bas', kOrangeSoft,
+                            _badge('Low stock', kOrangeSoft,
                                 const Color(0xFFD97706)),
                         ],
                       ),
@@ -330,7 +330,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                                 size: 14, color: kMuted),
                             const SizedBox(width: 4),
                             Text(
-                              'Stock : ${med.stockQuantity} unité(s)',
+                              'Stock: ${med.stockQuantity} unit(s)',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: hasLowStock

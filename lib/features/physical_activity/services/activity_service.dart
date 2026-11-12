@@ -91,9 +91,27 @@ class ActivityService {
       whereArgs.add(targetUserId);
     }
 
-    if (typeFilter != null && typeFilter.trim().isNotEmpty && typeFilter != 'Tous') {
-      conditions.add('LOWER(type) = LOWER(?)');
-      whereArgs.add(typeFilter.trim());
+    if (typeFilter != null &&
+        typeFilter.trim().isNotEmpty &&
+        typeFilter != 'Tous' &&
+        typeFilter != 'All') {
+      final tf = typeFilter.trim().toLowerCase();
+      if (tf == 'walking' || tf == 'marche') {
+        conditions.add('(LOWER(type) = ? OR LOWER(type) = ?)');
+        whereArgs.addAll(['walking', 'marche']);
+      } else if (tf == 'running' || tf == 'course') {
+        conditions.add('(LOWER(type) = ? OR LOWER(type) = ?)');
+        whereArgs.addAll(['running', 'course']);
+      } else if (tf == 'cycling' || tf == 'vélo' || tf == 'velo') {
+        conditions.add('(LOWER(type) = ? OR LOWER(type) = ? OR LOWER(type) = ?)');
+        whereArgs.addAll(['cycling', 'vélo', 'velo']);
+      } else if (tf == 'swimming' || tf == 'natation') {
+        conditions.add('(LOWER(type) = ? OR LOWER(type) = ?)');
+        whereArgs.addAll(['swimming', 'natation']);
+      } else {
+        conditions.add('LOWER(type) = LOWER(?)');
+        whereArgs.add(typeFilter.trim());
+      }
     }
 
     final whereClause = conditions.isNotEmpty ? conditions.join(' AND ') : null;

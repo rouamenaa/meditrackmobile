@@ -112,7 +112,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         _searching = false;
         _searchResults = results;
         if (results.isEmpty) {
-          _searchError = 'Aucun résultat pour "$query". Essaie en anglais.';
+          _searchError = 'No results for "$query".';
         }
       });
     } on DrugSearchException catch (e) {
@@ -151,13 +151,13 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           _form = MedicationForm.gouttes;
         }
       }
-      _descriptionCtrl.text = 'Source : RxNorm (NIH) — rxcui: ${result.rxcui}';
+      _descriptionCtrl.text = 'Source: RxNorm (NIH) — rxcui: ${result.rxcui}';
       _searchResults = [];
       _searchCtrl.clear();
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✓ "${result.name}" importé depuis RxNorm (NIH)'),
+        content: Text('✓ "${result.name}" imported from RxNorm (NIH)'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: _kPrimary,
       ),
@@ -261,7 +261,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         elevation: 0,
         foregroundColor: _kNavy,
         title: Text(
-          _isEditing ? 'Modifier le médicament' : 'Nouveau médicament',
+          _isEditing ? 'Edit Medication' : 'New Medication',
           style: const TextStyle(
               fontWeight: FontWeight.w800, fontSize: 18, color: _kNavy),
         ),
@@ -273,10 +273,10 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
           children: [
 
             // ════════ SECTION RECHERCHE RXNORM ════════
-            _sectionTitle('🔍 Recherche automatique (RxNorm NIH)'),
+            _sectionTitle('🔍 Automatic search (RxNorm NIH)'),
             const SizedBox(height: 6),
             Text(
-              'Cherche un médicament par son nom pour remplir le formulaire automatiquement.',
+              'Search for a drug by name to autofill the form.',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 10),
@@ -304,7 +304,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                             textInputAction: TextInputAction.search,
                             onFieldSubmitted: (_) => _searchDrug(),
                             decoration: InputDecoration(
-                              hintText: 'Ex: ibuprofen, amoxicillin...',
+                              hintText: 'E.g.: ibuprofen, amoxicillin...',
                               prefixIcon:
                                   const Icon(Icons.search, color: _kMuted),
                               border: InputBorder.none,
@@ -334,7 +334,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                                         horizontal: 14, vertical: 10),
                                     elevation: 0,
                                   ),
-                                  child: const Text('Rechercher',
+                                  child: const Text('Search',
                                       style: TextStyle(fontSize: 13)),
                                 ),
                         ),
@@ -387,26 +387,26 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             const SizedBox(height: 24),
 
             // ════════ INFORMATIONS PRINCIPALES ════════
-            _sectionTitle('Informations principales'),
+            _sectionTitle('Main information'),
             const SizedBox(height: 10),
             _fieldCard(children: [
               _textField(
                 controller: _nameCtrl,
-                label: 'Nom du médicament *',
+                label: 'Medication name *',
                 icon: Icons.medication_rounded,
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Nom obligatoire' : null,
+                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
               _divider(),
               _textField(
                 controller: _dosageCtrl,
-                label: 'Dosage (ex : 500 mg)',
+                label: 'Dosage (e.g. 500 mg)',
                 icon: Icons.straighten_outlined,
               ),
               _divider(),
               _textField(
                 controller: _manufacturerCtrl,
-                label: 'Fabricant / Marque',
+                label: 'Manufacturer / Brand',
                 icon: Icons.business_outlined,
               ),
             ]),
@@ -414,7 +414,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             const SizedBox(height: 20),
 
             // ════════ FORME PHARMACEUTIQUE ════════
-            _sectionTitle('Forme pharmaceutique'),
+            _sectionTitle('Pharmaceutical form'),
             const SizedBox(height: 10),
             _fieldCard(children: [
               Padding(
@@ -426,7 +426,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                     border: InputBorder.none,
                     prefixIcon:
                         Icon(Icons.category_outlined, color: _kMuted),
-                    labelText: 'Forme',
+                    labelText: 'Form',
                   ),
                   items: MedicationForm.values.map((f) {
                     return DropdownMenuItem(
@@ -443,7 +443,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             const SizedBox(height: 20),
 
             // ════════ DATE D'EXPIRATION ════════
-            _sectionTitle("Date d'expiration"),
+            _sectionTitle('Expiration date'),
             const SizedBox(height: 10),
             _fieldCard(children: [
               ListTile(
@@ -451,7 +451,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                 title: Text(
                   _expiryDate != null
                       ? _fmtDate(_expiryDate!)
-                      : 'Non renseignée',
+                      : 'Not set',
                   style: TextStyle(
                     color:
                         _expiryDate != null ? _kNavy : Colors.grey.shade400,
@@ -465,11 +465,11 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                       IconButton(
                         icon: const Icon(Icons.clear, color: _kMuted),
                         onPressed: () => setState(() => _expiryDate = null),
-                        tooltip: 'Effacer',
+                        tooltip: 'Clear',
                       ),
                     TextButton(
                       onPressed: _pickExpiryDate,
-                      child: const Text('Choisir',
+                      child: const Text('Choose',
                           style: TextStyle(color: _kPrimary)),
                     ),
                   ],
@@ -480,15 +480,15 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             const SizedBox(height: 20),
 
             // ════════ SUIVI DU STOCK ════════
-            _sectionTitle('Suivi du stock'),
+            _sectionTitle('Stock tracking'),
             const SizedBox(height: 10),
             _fieldCard(children: [
               SwitchListTile(
                 value: _trackStock,
                 activeColor: _kPrimary,
-                title: const Text('Activer le suivi du stock',
+                title: const Text('Enable stock tracking',
                     style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Comptez vos unités restantes',
+                subtitle: const Text('Track your remaining units',
                     style: TextStyle(fontSize: 12)),
                 onChanged: (v) => setState(() => _trackStock = v),
               ),
@@ -496,21 +496,21 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                 _divider(),
                 _textField(
                   controller: _stockCtrl,
-                  label: 'Quantité en stock',
+                  label: 'Quantity in stock',
                   icon: Icons.inventory_2_outlined,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (v) {
                     if (!_trackStock) return null;
-                    if (v == null || v.isEmpty) return 'Quantité obligatoire';
-                    if (int.tryParse(v) == null) return 'Nombre invalide';
+                    if (v == null || v.isEmpty) return 'Quantity is required';
+                    if (int.tryParse(v) == null) return 'Invalid number';
                     return null;
                   },
                 ),
                 _divider(),
                 _textField(
                   controller: _alertCtrl,
-                  label: 'Alerte si stock ≤ (optionnel)',
+                  label: 'Alert if stock ≤ (optional)',
                   icon: Icons.notifications_outlined,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -555,8 +555,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                             strokeWidth: 2.5, color: Colors.white))
                     : Text(
                         _isEditing
-                            ? 'Enregistrer les modifications'
-                            : 'Ajouter le médicament',
+                            ? 'Save changes'
+                            : 'Add medication',
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 15),
                       ),

@@ -34,28 +34,28 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
   bool _loading = true;
 
   static const List<String> _monthNames = [
-    'Janvier',
-    'Février',
-    'Mars',
-    'Avril',
-    'Mai',
-    'Juin',
-    'Juillet',
-    'Août',
-    'Septembre',
-    'Octobre',
-    'Novembre',
-    'Décembre',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   static const List<String> _weekdayNames = [
-    'Lun',
-    'Mar',
-    'Mer',
-    'Jeu',
-    'Ven',
-    'Sam',
-    'Dim',
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
   ];
 
   String? get _effectiveUserId =>
@@ -126,15 +126,15 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
     final month = _monthNames[date.month - 1];
     final year = date.year;
     final weekday = [
-      'Lundi',
-      'Mardi',
-      'Mercredi',
-      'Jeudi',
-      'Vendredi',
-      'Samedi',
-      'Dimanche',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
     ][date.weekday - 1];
-    return '$weekday $day $month $year';
+    return '$weekday, $month $day, $year';
   }
 
   String _formatTime(DateTime date) {
@@ -182,15 +182,15 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
+        title: const Text('Confirm deletion'),
         content: Text(
-          'Voulez-vous vraiment supprimer cette séance de ${activity.type.toLowerCase()} du ${_formatDateHeader(activity.activityDate)} ?',
+          'Do you really want to delete this ${activity.typeLabel.toLowerCase()} session on ${_formatDateHeader(activity.activityDate)}?',
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -198,7 +198,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -210,7 +210,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Séance supprimée et rappel annulé'),
+          content: Text('Session deleted and reminder cancelled'),
           backgroundColor: Color(0xFF00685D),
           behavior: SnackBarBehavior.floating,
         ),
@@ -270,7 +270,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          activity.type,
+                          activity.typeLabel,
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -279,7 +279,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          '${_formatDateHeader(activity.activityDate)} à ${_formatTime(activity.activityDate)}',
+                          '${_formatDateHeader(activity.activityDate)} at ${_formatTime(activity.activityDate)}',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade600,
@@ -314,7 +314,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isFuture ? 'À venir' : 'Terminée',
+                          isFuture ? 'Upcoming' : 'Completed',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -346,7 +346,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Rappel programmé 5 min avant (à ${_formatTime(activity.activityDate.subtract(const Duration(minutes: 5)))})',
+                          'Reminder scheduled 5 min before (at ${_formatTime(activity.activityDate.subtract(const Duration(minutes: 5)))})',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -370,7 +370,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                 children: [
                   _buildDetailTile(
                     icon: Icons.timer_outlined,
-                    title: 'Durée',
+                    title: 'Duration',
                     value: '${activity.durationMinutes} min',
                     color: kTextPrimary,
                   ),
@@ -379,34 +379,36 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                     title: 'Distance',
                     value: activity.distanceKm != null
                         ? '${activity.distanceKm!.toStringAsFixed(1)} km'
-                        : 'Non renseignée',
+                        : 'Not specified',
                     color: kPrimary,
                   ),
                   _buildDetailTile(
                     icon: Icons.bolt_rounded,
-                    title: 'Intensité',
-                    value: activity.intensity,
+                    title: 'Intensity',
+                    value: activity.intensityLabel,
                     color: activity.intensityColor,
                   ),
                   if (activity.caloriesBurned != null)
                     _buildDetailTile(
                       icon: Icons.local_fire_department_outlined,
-                      title: 'Énergie',
+                      title: 'Energy',
                       value: '${activity.caloriesBurned} kcal',
                       color: Colors.deepOrange,
                     ),
                   if (activity.paceLabel != null)
                     _buildDetailTile(
                       icon: Icons.speed_rounded,
-                      title: 'Allure',
+                      title: 'Pace',
                       value: activity.paceLabel!,
                       color: const Color(0xFF0058BD),
                     ),
                   if (activity.speedKmh != null &&
-                      activity.type.toLowerCase().contains('vélo'))
+                      (activity.type.toLowerCase().contains('vélo') ||
+                          activity.type.toLowerCase().contains('velo') ||
+                          activity.type.toLowerCase().contains('cycl')))
                     _buildDetailTile(
                       icon: Icons.speed_rounded,
-                      title: 'Vitesse',
+                      title: 'Speed',
                       value: '${activity.speedKmh!.toStringAsFixed(1)} km/h',
                       color: const Color(0xFF0058BD),
                     ),
@@ -417,7 +419,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
               if (activity.notes != null && activity.notes!.trim().isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Text(
-                  'Notes du patient :',
+                  'Patient notes:',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -457,7 +459,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                       },
                       icon: const Icon(Icons.delete_outline,
                           size: 18, color: Colors.redAccent),
-                      label: const Text('Supprimer',
+                      label: const Text('Delete',
                           style: TextStyle(color: Colors.redAccent)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -476,7 +478,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                         _editActivity(activity);
                       },
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Modifier'),
+                      label: const Text('Edit'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kPrimary,
                         foregroundColor: Colors.white,
@@ -553,7 +555,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
       backgroundColor: kSurface,
       appBar: AppBar(
         title: const Text(
-          'Mon agenda sportif',
+          'Workout Agenda',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -564,13 +566,13 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
             onPressed: _jumpToToday,
             icon: const Icon(Icons.today_rounded, size: 18, color: kPrimary),
             label: const Text(
-              'Aujourd\'hui',
+              'Today',
               style: TextStyle(fontWeight: FontWeight.bold, color: kPrimary),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.add_rounded, color: kPrimary),
-            tooltip: 'Nouvelle séance',
+            tooltip: 'New session',
             onPressed: _addNewActivityForSelectedDay,
           ),
         ],
@@ -614,7 +616,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${selectedDayActivities.length} ${selectedDayActivities.length > 1 ? 'séances' : 'séance'}',
+                          '${selectedDayActivities.length} ${selectedDayActivities.length > 1 ? 'workouts' : 'workout'}',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -645,7 +647,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                               size: 40, color: Colors.grey.shade400),
                           const SizedBox(height: 10),
                           Text(
-                            'Aucune séance enregistrée pour cette date.',
+                            'No workouts logged for this date.',
                             style: TextStyle(
                               fontSize: 13.5,
                               color: Colors.grey.shade600,
@@ -655,7 +657,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                           ElevatedButton.icon(
                             onPressed: _addNewActivityForSelectedDay,
                             icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('Programmer une séance ce jour'),
+                            label: const Text('Schedule a workout for this date'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kPrimary,
                               foregroundColor: Colors.white,
@@ -719,7 +721,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
               IconButton(
                 icon: const Icon(Icons.chevron_left_rounded, size: 28),
                 color: kPrimary,
-                tooltip: 'Mois précédent',
+                tooltip: 'Previous month',
                 onPressed: _previousMonth,
               ),
               Text(
@@ -733,7 +735,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
               IconButton(
                 icon: const Icon(Icons.chevron_right_rounded, size: 28),
                 color: kPrimary,
-                tooltip: 'Mois suivant',
+                tooltip: 'Next month',
                 onPressed: _nextMonth,
               ),
             ],
@@ -883,9 +885,9 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegendDot(const Color(0xFF00C853), 'Séance à venir (-5 min)'),
+              _buildLegendDot(const Color(0xFF00C853), 'Upcoming workout (-5 min)'),
               const SizedBox(width: 16),
-              _buildLegendDot(kPrimary, 'Séance passée'),
+              _buildLegendDot(kPrimary, 'Past workout'),
             ],
           ),
         ],
@@ -967,7 +969,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                     Row(
                       children: [
                         Text(
-                          activity.type,
+                          activity.typeLabel,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -983,7 +985,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            activity.intensity,
+                            activity.intensityLabel,
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
@@ -1065,7 +1067,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      isFuture ? 'À venir' : 'Terminée',
+                      isFuture ? 'Upcoming' : 'Completed',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,

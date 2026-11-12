@@ -201,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } catch (error, stack) {
-      debugPrint('MediTrack: markLog($logId) a échoué: $error');
+      debugPrint('MediTrack: markLog($logId) failed: $error');
       debugPrint('$stack');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1369,28 +1369,28 @@ class _HomeNavBar extends StatelessWidget {
             children: [
               _NavItem(
                 icon: Icons.home_rounded,
-                label: 'Accueil',
+                label: 'Home',
                 active: true,
                 onTap: onHome,
               ),
               _NavItem(
                 icon: Icons.medication_outlined,
-                label: 'Traitements',
+                label: 'Treatments',
                 onTap: onTreatments,
               ),
               _NavItem(
                 icon: Icons.medication_liquid_rounded,
-                label: 'Médicaments',
+                label: 'Medications',
                 onTap: onMedications,
               ),
               _NavItem(
                 icon: Icons.calendar_today_rounded,
-                label: 'Rendez-vous',
+                label: 'Appointments',
                 onTap: onAppointments,
               ),
               _NavItem(
                 icon: Icons.monitor_heart_outlined,
-                label: 'Activité',
+                label: 'Activity',
                 onTap: onActivity,
               ),
             ],

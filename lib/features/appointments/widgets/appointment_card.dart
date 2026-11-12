@@ -112,15 +112,15 @@ class _AppointmentCardState extends State<AppointmentCard> {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan.', 'Fév.', 'Mars', 'Avr.', 'Mai', 'Juin',
-      'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     final day = dt.day.toString().padLeft(2, '0');
     final month = months[dt.month - 1];
     final year = dt.year;
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day $month $year à $hour:$minute';
+    return '$month $day, $year at $hour:$minute';
   }
 
   void _showDeleteDialog(BuildContext context) {
@@ -128,14 +128,14 @@ class _AppointmentCardState extends State<AppointmentCard> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Supprimer ce rendez-vous ?'),
+        title: const Text('Delete this appointment?'),
         content: Text(
-          'Voulez-vous vraiment supprimer le rendez-vous avec ${widget.showPatient ? appointment.patientName ?? "ce patient" : appointment.practitioner?.fullName ?? "ce praticien"} ?',
+          'Do you really want to delete the appointment with ${widget.showPatient ? appointment.patientName ?? "this patient" : appointment.practitioner?.fullName ?? "this practitioner"}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -145,7 +145,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
               Navigator.of(ctx).pop();
               widget.onDelete();
             },
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -239,7 +239,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isTeleconsult ? 'Téléconsultation' : 'Présentiel',
+                                isTeleconsult ? 'Teleconsultation' : 'In-person',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: isTeleconsult
@@ -256,7 +256,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   ),
                   PopupMenuButton<AppointmentStatus>(
                     icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
-                    tooltip: 'Changer le statut',
+                    tooltip: 'Change status',
                     onSelected: widget.onStatusChanged,
                     itemBuilder: (ctx) => [
                       ...AppointmentStatus.values.map(
@@ -306,7 +306,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                           ? appointment.patientName ?? 'Patient'
                           : appointment.practitioner != null
                           ? '${appointment.practitioner!.fullName} (${appointment.practitioner!.specialty})'
-                          : 'Praticien #${appointment.practitionerId}',
+                          : 'Practitioner #${appointment.practitionerId}',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade800,
@@ -391,7 +391,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                   ),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Calcul de l\'itinéraire...',
+                                    'Calculating route...',
                                     style: TextStyle(fontSize: 12, color: _kGreen),
                                   ),
                                 ],
@@ -401,8 +401,8 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                 children: [
                                   Text(
                                     _routeInfo != null
-                                        ? 'À ${_routeInfo!.formattedDistance} (~${_routeInfo!.formattedDuration})'
-                                        : 'Itinéraire disponible',
+                                        ? '${_routeInfo!.formattedDistance} away (~${_routeInfo!.formattedDuration})'
+                                        : 'Route available',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -410,7 +410,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                     ),
                                   ),
                                   Text(
-                                    facility?.name ?? 'Lieu de consultation',
+                                    facility?.name ?? 'Consultation location',
                                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -425,7 +425,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                           visualDensity: VisualDensity.compact,
                         ),
                         icon: const Icon(Icons.navigation_outlined, size: 16),
-                        label: const Text('Y aller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: const Text('Directions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         onPressed: () {
                           RoutingService.instance.openMapNavigation(
                             destLat: facility!.latitude!,
@@ -480,7 +480,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                       size: 20,
                       color: Color(0xFFD32F2F),
                     ),
-                    tooltip: 'Supprimer',
+                    tooltip: 'Delete',
                     onPressed: () => _showDeleteDialog(context),
                   ),
                 ],

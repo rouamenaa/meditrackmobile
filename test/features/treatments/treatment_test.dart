@@ -253,28 +253,28 @@ void main() {
     test('une prise le matin', () {
       expect(
         _treatment(reminderTimes: const ['08:00']).frequencyLabel,
-        '1x par matin (Matin)',
+        '1x per morning (Morning)',
       );
     });
 
     test('une prise le soir', () {
       expect(
         _treatment(reminderTimes: const ['20:00']).frequencyLabel,
-        '1x par soir (Soir)',
+        '1x per evening (Evening)',
       );
     });
 
     test('matin + soir', () {
       expect(
         _treatment(reminderTimes: const ['08:00', '20:00']).frequencyLabel,
-        '2x par jour (Matin & Soir)',
+        '2x per day (Morning & Evening)',
       );
     });
 
     test('matin + après-midi', () {
       expect(
         _treatment(reminderTimes: const ['09:00', '14:00']).frequencyLabel,
-        '2x par jour (Matin & Après-midi)',
+        '2x per day (Morning & Afternoon)',
       );
     });
 
@@ -282,21 +282,21 @@ void main() {
       expect(
         _treatment(reminderTimes: const ['08:00', '20:00', '21:00'])
             .frequencyLabel,
-        '3x par jour (Matin & Soir)',
+        '3x per day (Morning & Evening)',
       );
     });
 
     test('horaire invalide -> compté mais sans moment', () {
       expect(
         _treatment(reminderTimes: const ['abc']).frequencyLabel,
-        '1x par jour',
+        '1x per day',
       );
     });
 
     test('midi et après-midi restent "par jour"', () {
       expect(
         _treatment(reminderTimes: const ['12:00']).frequencyLabel,
-        '1x par jour (Après-midi)',
+        '1x per day (Afternoon)',
       );
     });
   });
@@ -420,8 +420,8 @@ void main() {
     });
 
     test('fmtDateLettres : jour de la semaine + mois abrégé', () {
-      expect(fmtDateLettres(DateTime(2026, 8, 12)), 'Mercredi 12 août');
-      expect(fmtDateLettres(DateTime(2026, 11, 7)), 'Samedi 7 nov.');
+      expect(fmtDateLettres(DateTime(2026, 8, 12)), 'Wednesday, Aug 12');
+      expect(fmtDateLettres(DateTime(2026, 11, 7)), 'Saturday, Nov 7');
     });
 
     test('fmtProchainePrise : pas de prochaine prise', () {
@@ -432,7 +432,7 @@ void main() {
       final now = DateTime(2026, 11, 7, 9);
       expect(
         fmtProchainePrise(DateTime(2026, 11, 7, 20), now),
-        "Aujourd'hui à 20:00",
+        "Today at 20:00",
       );
     });
 
@@ -440,7 +440,7 @@ void main() {
       final now = DateTime(2026, 11, 7, 9);
       expect(
         fmtProchainePrise(DateTime(2026, 11, 8, 8), now),
-        'Demain à 8:00',
+        'Tomorrow at 8:00',
       );
     });
 
@@ -448,7 +448,7 @@ void main() {
       final now = DateTime(2026, 11, 7, 9);
       expect(
         fmtProchainePrise(DateTime(2026, 11, 9, 8), now),
-        'Lundi 9 nov. à 8:00',
+        'Monday, Nov 9 at 8:00',
       );
     });
 
@@ -459,7 +459,7 @@ void main() {
       );
       expect(
         fmtPeriode(DateTime(2026, 9, 1), null),
-        'Depuis 01/09/2026 · chronique',
+        'Since 01/09/2026 · chronic',
       );
     });
   });
