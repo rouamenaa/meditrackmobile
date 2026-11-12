@@ -1,10 +1,7 @@
-// Appel de l'API Google Gemini (génération de contenu) via REST + fetch natif.
-// La clé est lue dans .env -> GEMINI_API_KEY ; le modèle dans GEMINI_MODEL.
 
 const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-// Convertit l'historique [{ role: 'user'|'model', text }] au format Gemini.
 function toGeminiContents(messages) {
   return messages
     .filter((m) => m && typeof m.text === 'string' && m.text.trim())
