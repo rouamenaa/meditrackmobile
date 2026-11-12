@@ -1,7 +1,7 @@
 // Appel de l'API Google Gemini (génération de contenu) via REST + fetch natif.
 // La clé est lue dans .env -> GEMINI_API_KEY ; le modèle dans GEMINI_MODEL.
 
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // Convertit l'historique [{ role: 'user'|'model', text }] au format Gemini.
@@ -46,10 +46,16 @@ async function generateReply({ systemInstruction, messages }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(40000),
     });
   } catch (e) {
-    const err = new Error('Unable to reach the AI service');
-    err.code = 'NETWORK';
+    const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+    const err = new Error(
+      timedOut
+        ? 'The AI service timed out. Please try again.'
+        : 'Unable to reach the AI service'
+    );
+    err.code = timedOut ? 'AI_TIMEOUT' : 'NETWORK';
     throw err;
   }
 

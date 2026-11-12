@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
 import 'package:meditrackmobile/config.dart';
+
 import 'session.dart';
 
 class ApiException implements Exception {
   final String message;
-  final int? statusCode; // null = pas de réponse du serveur (réseau)
-  final dynamic body; // corps JSON de la réponse, si présent
+  final int? statusCode;
+  final dynamic body;
 
   ApiException(this.message, [this.statusCode, this.body]);
 
@@ -28,17 +30,27 @@ class ApiService {
   Future<dynamic> get(String path) =>
       _send(() => http.get(_uri(path), headers: _headers));
 
-  Future<dynamic> post(String path, Map<String, dynamic> body) => _send(
-          () => http.post(_uri(path), headers: _headers, body: json.encode(body)));
+  Future<dynamic> post(
+    String path,
+    Map<String, dynamic> body, {
+    Duration timeout = const Duration(seconds: 10),
+  }) => _send(
+    () => http.post(_uri(path), headers: _headers, body: json.encode(body)),
+    timeout: timeout,
+  );
 
   Future<dynamic> put(String path, Map<String, dynamic> body) => _send(
-          () => http.put(_uri(path), headers: _headers, body: json.encode(body)));
+    () => http.put(_uri(path), headers: _headers, body: json.encode(body)),
+  );
 
   Future<dynamic> delete(String path) =>
       _send(() => http.delete(_uri(path), headers: _headers));
 
-  /// Envoie un fichier en multipart/form-data (ex : photo de profil).
-  Future<dynamic> postMultipart(String path, String field, String filePath) async {
+  Future<dynamic> postMultipart(
+    String path,
+    String field,
+    String filePath,
+  ) async {
     final request = http.MultipartRequest('POST', _uri(path));
     if (Session.instance.token != null) {
       request.headers['Authorization'] = 'Bearer ${Session.instance.token}';
@@ -47,8 +59,9 @@ class ApiService {
 
     final http.Response r;
     try {
-      final streamed =
-          await request.send().timeout(const Duration(seconds: 30));
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
       r = await http.Response.fromStream(streamed);
     } on TimeoutException {
       throw ApiException('The server is not responding');
@@ -60,10 +73,13 @@ class ApiService {
     return _decode(r);
   }
 
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
+  Future<dynamic> _send(
+    Future<http.Response> Function() request, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     final http.Response r;
     try {
-      r = await request().timeout(const Duration(seconds: 10));
+      r = await request().timeout(timeout);
     } on TimeoutException {
       throw ApiException('The server is not responding');
     } on SocketException {

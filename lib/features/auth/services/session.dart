@@ -9,8 +9,8 @@ class Session {
   static const _userIdKey = 'user_id';
   static const _signedOutKey = 'explicitly_signed_out';
 
-  String? token; // en mémoire pendant que l'app tourne
-  User? user; // utilisateur courant
+  String? token;
+  User? user;
 
   Future<void> start(String token, User user, {required bool remember}) async {
     this.token = token;
@@ -25,7 +25,6 @@ class Session {
     }
   }
 
-  /// Returns the remembered user ID without activating the saved token.
   Future<String?> loadSavedUserId() async {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getString(_userIdKey);
@@ -38,8 +37,6 @@ class Session {
     return prefs.getBool(_signedOutKey) ?? false;
   }
 
-  /// Activates the remembered token. Call only for automatic restore or
-  /// after the user has successfully passed biometric/device authentication.
   Future<bool> activateSavedToken() async {
     final prefs = await SharedPreferences.getInstance();
     final savedToken = prefs.getString(_tokenKey);
@@ -48,8 +45,6 @@ class Session {
     return true;
   }
 
-  /// Ends the active session. Keep remembered credentials only so the user
-  /// can sign in again after biometric/device authentication.
   Future<bool> signOut() async {
     token = null;
     user = null;
