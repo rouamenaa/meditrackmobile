@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import '../../physical_activity/screens/sports_agenda_screen.dart';
+import '../../physical_activity/widgets/sports_agenda_card.dart';
 import '../../appointments/models/appointment.dart';
 import '../../appointments/screens/appointment_form_screen.dart';
 import '../../appointments/screens/appointments_screen.dart';
@@ -220,6 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _goTreatments() => _open(TreatmentsScreen(user: widget.user));
   void _goMedications() => _open(MedicationsScreen(user: widget.user));
   void _goActivity() => _open(const ActivityListScreen());
+  void _goSportsAgenda() => _open(SportsAgendaScreen(userId: widget.user.id));
   void _goProfile() => _open(ProfileScreen(user: widget.user));
   void _goAi() => _open(const AiAssistantScreen());
   void _goNewAppointment() => _open(AppointmentFormScreen(user: widget.user));
@@ -285,6 +287,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               appointment: next,
                               onOpen: _goAppointments,
                               onNew: _goNewAppointment,
+                            ),
+                            const SizedBox(height: 16),
+                            SportsAgendaCard(
+                              userId: widget.user.id,
+                              onOpen: _goSportsAgenda,
                             ),
                             const SizedBox(height: 16),
                             if (!loading)

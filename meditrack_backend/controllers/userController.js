@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs/promises');
+const path = require('path');
 const User = require('../models/User');
 const { sendMail, generateCode } = require('../config/mailer');
 
@@ -7,6 +9,26 @@ const CODE_TTL_MS = 15 * 60 * 1000;
 
 const sign = (user) =>
   jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+async function detectPhotoExtension(filePath) {
+  const data = await fs.readFile(filePath);
+  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
+    return '.jpg';
+  }
+  if (data.length >= 8 && data.subarray(0, 8).equals(
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  )) {
+    return '.png';
+  }
+  if (
+    data.length >= 12 &&
+    data.toString('ascii', 0, 4) === 'RIFF' &&
+    data.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return '.webp';
+  }
+  return null;
+}
 
 const EDITABLE = [
   'nom', 'prenom', 'telephone', 'date_naissance', 'sexe',
@@ -262,17 +284,38 @@ exports.changePassword = async (req, res) => {
 
 // POST /users/:id/photo  (form-data, champ "image")
 exports.uploadPhoto = async (req, res) => {
+  let storedPath;
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Image manquante (jpeg, png ou webp, 5 Mo max)' });
+      return res.status(400).json({
+        error: 'Choose a JPEG, PNG, or WebP image smaller than 5 MB.',
+      });
     }
+    const extension = await detectPhotoExtension(req.file.path);
+    if (!extension) {
+      await fs.unlink(req.file.path);
+      return res.status(415).json({
+        error: 'This image format is not supported. Choose a JPEG, PNG, or WebP image.',
+      });
+    }
+    const filename = `${path.parse(req.file.filename).name}${extension}`;
+    storedPath = path.join(path.dirname(req.file.path), filename);
+    if (storedPath !== req.file.path) {
+      await fs.rename(req.file.path, storedPath);
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { photo: `uploads/${req.file.filename}` },
+      { photo: `uploads/${filename}` },
       { new: true }
     );
+    if (!user) {
+      await fs.unlink(storedPath);
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json(user);
   } catch (e) {
+    if (storedPath) await fs.unlink(storedPath).catch(() => {});
     res.status(500).json({ error: e.message });
   }
 };
