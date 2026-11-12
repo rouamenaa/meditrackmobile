@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
+import '../../auth/services/session.dart';
 import '../models/physical_activity.dart';
+import '../services/activity_reminder_service.dart';
 import '../services/activity_service.dart';
 
 class ActivityFormScreen extends StatefulWidget {
   final PhysicalActivity? activityToEdit;
-  final int? userId;
+  final String? userId;
+  final DateTime? initialDate;
+  final String? initialType;
+  final int? initialDuration;
+  final String? initialIntensity;
+  final String? initialNotes;
 
   const ActivityFormScreen({
     super.key,
     this.activityToEdit,
     this.userId,
+    this.initialDate,
+    this.initialType,
+    this.initialDuration,
+    this.initialIntensity,
+    this.initialNotes,
   });
 
   @override
@@ -19,10 +31,12 @@ class ActivityFormScreen extends StatefulWidget {
 class _ActivityFormScreenState extends State<ActivityFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _activityService = ActivityService();
+  final _reminderService = ActivityReminderService();
 
   late String _selectedType;
   late String _selectedIntensity;
   late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
 
   final _durationController = TextEditingController();
   final _distanceController = TextEditingController();
@@ -30,19 +44,20 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
   final _caloriesController = TextEditingController();
 
   bool _isSaving = false;
+  int? _suggestedCalories;
 
-  final List<String> _activityTypes = const [
-    'Marche',
-    'Course',
-    'Vélo',
-    'Natation',
-    'Autre',
+  final List<(String, IconData)> _activityTypes = const [
+    ('Marche', Icons.directions_walk_rounded),
+    ('Course', Icons.directions_run_rounded),
+    ('Vélo', Icons.directions_bike_rounded),
+    ('Natation', Icons.pool_rounded),
+    ('Autre', Icons.fitness_center_rounded),
   ];
 
-  final List<String> _intensities = const [
-    'Faible',
-    'Modérée',
-    'Élevée',
+  final List<(String, Color)> _intensities = const [
+    ('Faible', Color(0xFF2E7D32)),
+    ('Modérée', Color(0xFFEF6C00)),
+    ('Élevée', Color(0xFFC62828)),
   ];
 
   bool get _isEditMode => widget.activityToEdit != null;
@@ -53,11 +68,12 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     final item = widget.activityToEdit;
 
     if (item != null) {
-      _selectedType = _activityTypes.contains(item.type) ? item.type : 'Autre';
-      _selectedIntensity = _intensities.contains(item.intensity)
+      _selectedType = _activityTypes.any((t) => t.$1 == item.type) ? item.type : 'Autre';
+      _selectedIntensity = _intensities.any((i) => i.$1 == item.intensity)
           ? item.intensity
           : 'Modérée';
       _selectedDate = item.activityDate;
+      _selectedTime = TimeOfDay.fromDateTime(item.activityDate);
       _durationController.text = item.durationMinutes.toString();
       _distanceController.text =
           item.distanceKm != null ? item.distanceKm.toString() : '';
@@ -65,10 +81,25 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       _caloriesController.text =
           item.caloriesBurned != null ? item.caloriesBurned.toString() : '';
     } else {
-      _selectedType = 'Course';
-      _selectedIntensity = 'Modérée';
-      _selectedDate = DateTime.now();
+      _selectedType = widget.initialType != null &&
+              _activityTypes.any((t) => t.$1 == widget.initialType)
+          ? widget.initialType!
+          : 'Marche';
+      _selectedIntensity = widget.initialIntensity != null &&
+              _intensities.any((i) => i.$1 == widget.initialIntensity)
+          ? widget.initialIntensity!
+          : 'Modérée';
+      _selectedDate = widget.initialDate ?? DateTime.now();
+      _selectedTime = widget.initialDate != null
+          ? TimeOfDay.fromDateTime(widget.initialDate!)
+          : TimeOfDay.now();
+      _durationController.text = (widget.initialDuration ?? 30).toString();
+      if (widget.initialNotes != null) {
+        _notesController.text = widget.initialNotes!;
+      }
     }
+
+    _recomputeCaloriesEstimate();
   }
 
   @override
@@ -80,12 +111,31 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     super.dispose();
   }
 
+  void _recomputeCaloriesEstimate() {
+    final duration = int.tryParse(_durationController.text.trim()) ?? 0;
+    if (duration > 0) {
+      final estimate = PhysicalActivity.calculateEstimatedCalories(
+        type: _selectedType,
+        durationMinutes: duration,
+        intensity: _selectedIntensity,
+      );
+      setState(() {
+        _suggestedCalories = estimate;
+      });
+    } else {
+      setState(() {
+        _suggestedCalories = null;
+      });
+    }
+  }
+
   Future<void> _pickDate() async {
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime(now.year + 5), // Permet de programmer des séances futures
     );
     if (picked != null) {
       setState(() {
@@ -93,9 +143,36 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
           picked.year,
           picked.month,
           picked.day,
-          _selectedDate.hour,
-          _selectedDate.minute,
+          _selectedTime.hour,
+          _selectedTime.minute,
         );
+      });
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+        _selectedDate = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          picked.hour,
+          picked.minute,
+        );
+      });
+    }
+  }
+
+  void _applySuggestedCalories() {
+    if (_suggestedCalories != null) {
+      setState(() {
+        _caloriesController.text = _suggestedCalories.toString();
       });
     }
   }
@@ -113,12 +190,18 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
           : null;
       final notesText = _notesController.text.trim();
       final caloriesText = _caloriesController.text.trim();
-      final int? calories =
-          caloriesText.isNotEmpty ? int.tryParse(caloriesText) : null;
+      final int? calories = caloriesText.isNotEmpty
+          ? int.tryParse(caloriesText)
+          : _suggestedCalories;
+
+      // Résolution du userId effectif
+      final effectiveUserId = widget.userId ??
+          widget.activityToEdit?.userId ??
+          Session.instance.user?.id;
 
       final activity = PhysicalActivity(
         id: widget.activityToEdit?.id,
-        userId: widget.userId ?? widget.activityToEdit?.userId,
+        userId: effectiveUserId,
         type: _selectedType,
         durationMinutes: duration,
         distanceKm: distance,
@@ -128,19 +211,48 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
         caloriesBurned: calories,
       );
 
+      bool reminderScheduled = false;
+
       if (_isEditMode) {
         await _activityService.update(activity);
+        if (activity.id != null) {
+          // Annule l'ancienne notification et replanifie si la séance est toujours dans le futur
+          await _reminderService.cancelReminderForActivity(activity.id!);
+          reminderScheduled =
+              await _reminderService.scheduleReminderForActivity(activity);
+        }
       } else {
-        await _activityService.create(activity);
+        final created = await _activityService.create(activity);
+        // Programme automatiquement un rappel 5 minutes avant la séance si elle est dans le futur
+        reminderScheduled =
+            await _reminderService.scheduleReminderForActivity(created);
       }
 
       if (!mounted) return;
 
+      final String message;
+      if (_isEditMode) {
+        message = reminderScheduled
+            ? 'Activité modifiée. Rappel programmé 5 min avant !'
+            : 'Activité modifiée avec succès';
+      } else {
+        message = reminderScheduled
+            ? 'Activité enregistrée. Rappel programmé 5 min avant !'
+            : 'Activité enregistrée avec succès';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditMode
-              ? 'Activité modifiée avec succès'
-              : 'Activité ajoutée avec succès'),
+          content: Row(
+            children: [
+              if (reminderScheduled) ...[
+                const Icon(Icons.notifications_active_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+              ],
+              Expanded(child: Text(message)),
+            ],
+          ),
           backgroundColor: const Color(0xFF0B6B5D),
           behavior: SnackBarBehavior.floating,
         ),
@@ -166,6 +278,8 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
     final formattedDate =
         '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}';
+    final formattedTime =
+        '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
       appBar: AppBar(
@@ -186,7 +300,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Type d'activité (obligatoire)
+                // 1. Type d'activité (Chips visuels)
                 const Text(
                   'Type d\'activité *',
                   style: TextStyle(
@@ -195,176 +309,325 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     color: kNavy,
                   ),
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedType,
-                  decoration: _inputDecoration(
-                    hint: 'Sélectionnez une activité',
-                    icon: Icons.sports_score_rounded,
-                  ),
-                  items: _activityTypes.map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Text(type),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _activityTypes.map((t) {
+                    final isSelected = _selectedType == t.$1;
+                    return ChoiceChip(
+                      avatar: Icon(
+                        t.$2,
+                        size: 18,
+                        color: isSelected ? Colors.white : kPrimaryGreen,
+                      ),
+                      label: Text(t.$1),
+                      selected: isSelected,
+                      selectedColor: kPrimaryGreen,
+                      backgroundColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : kNavy,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: isSelected ? kPrimaryGreen : Colors.grey.shade300,
+                        ),
+                      ),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() => _selectedType = t.$1);
+                          _recomputeCaloriesEstimate();
+                        }
+                      },
                     );
                   }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _selectedType = val);
-                    }
-                  },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
 
-                // 2. Date de l'activité (obligatoire)
+                // 2. Date et Heure de l'activité
                 const Text(
-                  'Date de l\'activité *',
+                  'Date et heure de la séance *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: kNavy,
                   ),
                 ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: _pickDate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 15),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: InkWell(
+                        onTap: _pickDate,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today_rounded,
+                                  color: kPrimaryGreen, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                formattedDate,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  color: kNavy,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: InkWell(
+                        onTap: _pickTime,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.access_time_rounded,
+                                  color: kPrimaryGreen, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                formattedTime,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  color: kNavy,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_selectedDate.isAfter(DateTime.now())) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: kPrimaryGreen.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(
+                        color: kPrimaryGreen.withValues(alpha: 0.25),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today_rounded,
-                            color: kPrimaryGreen, size: 20),
-                        const SizedBox(width: 12),
-                        Text(
-                          formattedDate,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: kNavy,
-                            fontWeight: FontWeight.w500,
+                        const Icon(
+                          Icons.notifications_active_rounded,
+                          color: kPrimaryGreen,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Séance future : une notification vous sera envoyée 5 min avant (${_selectedDate.subtract(const Duration(minutes: 5)).hour.toString().padLeft(2, '0')}:${_selectedDate.subtract(const Duration(minutes: 5)).minute.toString().padLeft(2, '0')}).',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: kNavy,
+                            ),
                           ),
                         ),
-                        const Spacer(),
-                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
+                ],
+                const SizedBox(height: 20),
 
-                // 3. Durée en minutes (obligatoire, entier > 0)
+                // 3. Durée et Intensité
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Durée *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: kNavy,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _durationController,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDecoration(
+                              hint: 'Ex: 45',
+                              icon: Icons.timer_outlined,
+                              suffixText: 'min',
+                            ),
+                            onChanged: (_) => _recomputeCaloriesEstimate(),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Durée requise';
+                              }
+                              final parsed = int.tryParse(value.trim());
+                              if (parsed == null || parsed <= 0) {
+                                return '> 0 min';
+                              }
+                              if (parsed > 1440) {
+                                return 'Max 1440 min (24h)';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Distance (optionnelle)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: kNavy,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _distanceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _inputDecoration(
+                              hint: 'Ex: 5.5',
+                              icon: Icons.route_outlined,
+                              suffixText: 'km',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return null;
+                              final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
+                              if (parsed == null || parsed < 0) {
+                                return 'Distance invalide';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // 4. Intensité (ChoiceChips colorés)
                 const Text(
-                  'Durée (en minutes) *',
+                  'Intensité de l\'effort *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: kNavy,
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _durationController,
-                  keyboardType: TextInputType.number,
-                  decoration: _inputDecoration(
-                    hint: 'Ex : 45',
-                    icon: Icons.timer_outlined,
-                    suffixText: 'min',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'La durée est obligatoire';
-                    }
-                    final parsed = int.tryParse(value.trim());
-                    if (parsed == null || parsed <= 0) {
-                      return 'Veuillez saisir un nombre entier supérieur à 0';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // 4. Distance en kilomètres (facultative)
-                const Text(
-                  'Distance (en km) — Facultatif',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _distanceController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: _inputDecoration(
-                    hint: 'Ex : 5.5',
-                    icon: Icons.route_outlined,
-                    suffixText: 'km',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return null;
-                    final parsed =
-                        double.tryParse(value.trim().replaceAll(',', '.'));
-                    if (parsed == null || parsed < 0) {
-                      return 'Veuillez saisir une distance valide positive';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // 5. Intensité (obligatoire : Faible, Modérée, Élevée)
-                const Text(
-                  'Intensité *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedIntensity,
-                  decoration: _inputDecoration(
-                    hint: 'Sélectionnez une intensité',
-                    icon: Icons.speed_rounded,
-                  ),
-                  items: _intensities.map((intensity) {
-                    return DropdownMenuItem(
-                      value: intensity,
-                      child: Text(intensity),
+                const SizedBox(height: 10),
+                Row(
+                  children: _intensities.map((item) {
+                    final isSelected = _selectedIntensity == item.$1;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ChoiceChip(
+                          label: Center(
+                            child: Text(
+                              item.$1,
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : item.$2,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: item.$2,
+                          backgroundColor: item.$2.withValues(alpha: 0.08),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: isSelected ? item.$2 : item.$2.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() => _selectedIntensity = item.$1);
+                              _recomputeCaloriesEstimate();
+                            }
+                          },
+                        ),
+                      ),
                     );
                   }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _selectedIntensity = val);
-                    }
-                  },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
 
-                // 6. Calories (facultatif, saisie libre par l'utilisateur)
-                const Text(
-                  'Calories brûlées (kcal) — Facultatif',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
-                  ),
+                // 5. Calories brûlées (avec suggestion auto)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Calories brûlées (kcal)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: kNavy,
+                      ),
+                    ),
+                    if (_suggestedCalories != null)
+                      TextButton.icon(
+                        onPressed: _applySuggestedCalories,
+                        icon: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFEF6C00)),
+                        label: Text(
+                          'Suggéré: ~$_suggestedCalories kcal',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFEF6C00),
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _caloriesController,
                   keyboardType: TextInputType.number,
                   decoration: _inputDecoration(
-                    hint: 'Ex : 250',
+                    hint: _suggestedCalories != null ? 'Ex: $_suggestedCalories' : 'Ex: 250',
                     icon: Icons.local_fire_department_outlined,
                     suffixText: 'kcal',
                   ),
@@ -372,16 +635,16 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                     if (value == null || value.trim().isEmpty) return null;
                     final parsed = int.tryParse(value.trim());
                     if (parsed == null || parsed < 0) {
-                      return 'Veuillez saisir un nombre entier de calories valide';
+                      return 'Nombre de calories invalide';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
 
-                // 7. Notes (facultatives)
+                // 6. Notes
                 const Text(
-                  'Notes / Remarques — Facultatif',
+                  'Notes / Sensations (optionnel)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -393,13 +656,13 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   controller: _notesController,
                   maxLines: 3,
                   decoration: _inputDecoration(
-                    hint: 'Sensations, météo, parcours...',
+                    hint: 'Sensations, parcours, essoufflement...',
                     icon: Icons.edit_note_rounded,
                   ),
                 ),
                 const SizedBox(height: 30),
 
-                // Boutons d'action : Enregistrer et Annuler
+                // Boutons d'action
                 ElevatedButton(
                   onPressed: _isSaving ? null : _submit,
                   style: ElevatedButton.styleFrom(
@@ -421,27 +684,21 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                           ),
                         )
                       : Text(
-                          _isEditMode
-                              ? 'Enregistrer les modifications'
-                              : 'Ajouter l\'activité',
+                          _isEditMode ? 'Enregistrer les modifications' : 'Ajouter l\'activité',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 TextButton(
-                  onPressed:
-                      _isSaving ? null : () => Navigator.of(context).pop(),
+                  onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     foregroundColor: Colors.grey.shade700,
                   ),
-                  child: const Text(
-                    'Annuler',
-                    style: TextStyle(fontSize: 15),
-                  ),
+                  child: const Text('Annuler', style: TextStyle(fontSize: 15)),
                 ),
               ],
             ),
@@ -462,8 +719,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
       suffixText: suffixText,
       filled: true,
       fillColor: Colors.white,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),

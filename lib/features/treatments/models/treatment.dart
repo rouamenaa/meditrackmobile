@@ -61,7 +61,8 @@ class IntakeLog {
 class Treatment {
   final int? id;
   final String userId; // ObjectId MongoDB (les comptes sont côté serveur)
-  final String medicationName; // nom du médicament (module 3.2 pas encore mergé)
+  final int? medicationId; // FK optionnelle -> medications.id (catalogue)
+  final String medicationName; // nom du médicament (dénormalisé / saisie libre)
   final String? medicationDosage; // ex : "500 mg capsule"
   final String dose; // ex : "1 comprimé"
   final List<String> reminderTimes; // ex : ["08:00", "20:00"]
@@ -72,6 +73,7 @@ class Treatment {
   Treatment({
     this.id,
     required this.userId,
+    this.medicationId,
     required this.medicationName,
     this.medicationDosage,
     required this.dose,
@@ -101,9 +103,9 @@ class Treatment {
     final detail = moments.isEmpty ? '' : ' (${moments.join(' & ')})';
     if (moments.length == 1) {
       final m = moments.first;
-      if (m == 'Matin' || m == 'Soir') return '$n par ${m.toLowerCase()}$detail';
+      if (m == 'Morning' || m == 'Evening') return '$n per ${m.toLowerCase()}$detail';
     }
-    return '$n par jour$detail';
+    return '$n per day$detail';
   }
 
   static String? _momentOf(String time) {
@@ -111,14 +113,15 @@ class Treatment {
     if (parts.isEmpty) return null;
     final h = int.tryParse(parts.first);
     if (h == null) return null;
-    if (h < 12) return 'Matin';
-    if (h < 18) return 'Après-midi';
-    return 'Soir';
+    if (h < 12) return 'Morning';
+    if (h < 18) return 'Afternoon';
+    return 'Evening';
   }
 
   Map<String, dynamic> toMap() => {
         'id': id,
         'user_id': userId,
+        'medication_id': medicationId,
         'medication_name': medicationName,
         'medication_dosage': medicationDosage,
         'dose': dose,
@@ -131,9 +134,12 @@ class Treatment {
   factory Treatment.fromMap(Map<String, dynamic> m) => Treatment(
         id: m['id'] as int?,
         userId: m['user_id'].toString(),
-        medicationName: m['medication_name'] as String,
+        medicationId: m['medication_id'] is int
+            ? m['medication_id'] as int
+            : int.tryParse('${m['medication_id'] ?? ''}'),
+        medicationName: m['medication_name'] as String? ?? '',
         medicationDosage: m['medication_dosage'] as String?,
-        dose: m['dose'] as String,
+        dose: m['dose'] as String? ?? '1 dose',
         reminderTimes: _decodeTimes(m['reminder_times'] as String? ?? ''),
         startDate: DateTime.parse((m['start_date'] as String).substring(0, 10)),
         endDate: (m['end_date'] as String?) == null
