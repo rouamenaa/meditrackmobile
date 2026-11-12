@@ -1,0 +1,166 @@
+{
+  "name": "MediTrack API",
+  "variables": [
+    { "name": "base_url", "value": "http://192.168.1.69:3000" },
+    { "name": "token", "value": "" },
+    { "name": "treatment_id", "value": "" },
+    { "name": "user_id", "value": "" }
+  ],
+  "requests": [
+    {
+      "name": "Health Check",
+      "method": "GET",
+      "url": "{{base_url}}/health"
+    },
+    {
+      "name": "Register User",
+      "method": "POST",
+      "url": "{{base_url}}/users",
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": {
+          "nom": "Test",
+          "prenom": "User",
+          "email": "test.bruno@example.com",
+          "password": "test123456",
+          "telephone": "0600000000",
+          "date_naissance": "2000-01-01",
+          "sexe": "M"
+        }
+      },
+      "scripts": {
+        "post": "if (res.status === 201) { bru.setVar('token', res.body.token); bru.setVar('user_id', res.body.user.id); }"
+      }
+    },
+    {
+      "name": "Login",
+      "method": "POST",
+      "url": "{{base_url}}/users/login",
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": {
+          "email": "test.bruno@example.com",
+          "password": "test123456"
+        }
+      },
+      "scripts": {
+        "post": "if (res.status === 200) { bru.setVar('token', res.body.token); bru.setVar('user_id', res.body.user.id); }"
+      }
+    },
+    {
+      "name": "Get Profile",
+      "method": "GET",
+      "url": "{{base_url}}/users/{{user_id}}",
+      "auth": { "type": "bearer", "token": "{{token}}" }
+    },
+    {
+      "name": "Create Treatment",
+      "method": "POST",
+      "url": "{{base_url}}/treatments",
+      "auth": { "type": "bearer", "token": "{{token}}" },
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": {
+          "medicationName": "Doliprane",
+          "medicationDosage": "500 mg",
+          "dose": "1 comprimé",
+          "reminderTimes": ["08:00", "20:00"],
+          "startDate": "2026-11-12",
+          "status": "active"
+        }
+      },
+      "scripts": {
+        "post": "if (res.status === 201) { bru.setVar('treatment_id', res.body.id); }"
+      }
+    },
+    {
+      "name": "Create Treatment (with medicationId)",
+      "method": "POST",
+      "url": "{{base_url}}/treatments",
+      "auth": { "type": "bearer", "token": "{{token}}" },
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": {
+          "medicationName": "Amoxicilline",
+          "medicationDosage": "500 mg",
+          "dose": "1 gélule",
+          "reminderTimes": ["08:00", "14:00", "20:00"],
+          "startDate": "2026-11-12",
+          "endDate": "2026-11-19",
+          "status": "active",
+          "medicationId": 42
+        }
+      }
+    },
+    {
+      "name": "List Treatments",
+      "method": "GET",
+      "url": "{{base_url}}/treatments",
+      "auth": { "type": "bearer", "token": "{{token}}" }
+    },
+    {
+      "name": "Get Treatment by ID",
+      "method": "GET",
+      "url": "{{base_url}}/treatments/{{treatment_id}}",
+      "auth": { "type": "bearer", "token": "{{token}}" }
+    },
+    {
+      "name": "Update Treatment",
+      "method": "PUT",
+      "url": "{{base_url}}/treatments/{{treatment_id}}",
+      "auth": { "type": "bearer", "token": "{{token}}" },
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": {
+          "dose": "2 comprimés",
+          "status": "active"
+        }
+      }
+    },
+    {
+      "name": "Stop Treatment",
+      "method": "PUT",
+      "url": "{{base_url}}/treatments/{{treatment_id}}",
+      "auth": { "type": "bearer", "token": "{{token}}" },
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": { "status": "stopped" }
+      }
+    },
+    {
+      "name": "Delete Treatment",
+      "method": "DELETE",
+      "url": "{{base_url}}/treatments/{{treatment_id}}",
+      "auth": { "type": "bearer", "token": "{{token}}" }
+    },
+    {
+      "name": "List Appointments",
+      "method": "GET",
+      "url": "{{base_url}}/appointments",
+      "auth": { "type": "bearer", "token": "{{token}}" }
+    },
+    {
+      "name": "Create Appointment",
+      "method": "POST",
+      "url": "{{base_url}}/appointments",
+      "auth": { "type": "bearer", "token": "{{token}}" },
+      "headers": { "Content-Type": "application/json" },
+      "body": {
+        "mode": "json",
+        "json": {
+          "doctor_user_id": "6aee0690997e7f20a5e91989",
+          "start_date_time": "2026-11-15T10:00:00.000Z",
+          "duration_minutes": 30,
+          "reason": "Consultation de routine",
+          "modality": "presentiel"
+        }
+      }
+    }
+  ]
+}
