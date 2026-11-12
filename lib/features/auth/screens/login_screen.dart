@@ -369,7 +369,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ----- Face ID / Touch ID -----
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: _loading ? null : _biometricLogin,
@@ -395,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Face ID / Touch ID',
+                              Text('Touch ID',
                                   style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 15)),
