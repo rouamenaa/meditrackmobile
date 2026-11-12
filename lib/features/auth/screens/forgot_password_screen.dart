@@ -20,7 +20,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _resetFormKey = GlobalKey<FormState>();
   final _repo = UserRepository();
 
-  int _step = 0; // 0 = email, 1 = code + nouveau mot de passe
+  int _step = 0;
   bool _loading = false;
   bool _hidePassword = true;
 
@@ -34,7 +34,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _sendCode() async {
-    // À l'étape 1 (renvoi), le formulaire email n'est plus affiché.
     final emailForm = _emailFormKey.currentState;
     if (emailForm != null && !emailForm.validate()) return;
     setState(() => _loading = true);

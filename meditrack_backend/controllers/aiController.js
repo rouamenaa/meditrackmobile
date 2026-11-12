@@ -1,13 +1,10 @@
-// Assistant santé IA du module user (Google Gemini).
-// Route protégée : un utilisateur connecté discute avec "MediTrack AI".
 
 const User = require('../models/User');
 const { generateReply } = require('../config/gemini');
 
-const MAX_MESSAGES = 20; // borne l'historique envoyé au modèle
-const MAX_CHARS = 4000; // borne la taille d'un message
+const MAX_MESSAGES = 20; 
+const MAX_CHARS = 4000; 
 
-// Consignes système : cadre l'assistant (santé générale, pas de diagnostic).
 function buildSystemInstruction(user) {
   const facts = [];
   if (user && user.prenom) facts.push(`First name: ${user.prenom}.`);
@@ -29,7 +26,6 @@ function buildSystemInstruction(user) {
   ].join(' ');
 }
 
-// Nettoie et valide l'historique reçu du client.
 function sanitizeMessages(raw) {
   if (!Array.isArray(raw)) return [];
   const clean = raw
@@ -38,13 +34,11 @@ function sanitizeMessages(raw) {
       role: m.role === 'model' ? 'model' : 'user',
       text: String(m.text).slice(0, MAX_CHARS),
     }));
-  // Gemini exige que la conversation commence par un tour utilisateur.
   const firstUser = clean.findIndex((m) => m.role === 'user');
   const start = firstUser === -1 ? clean.length : firstUser;
   return clean.slice(start).slice(-MAX_MESSAGES);
 }
 
-// POST /ai/chat  { messages: [{ role: 'user'|'model', text }] }
 exports.chat = async (req, res) => {
   try {
     const messages = sanitizeMessages(req.body && req.body.messages);
@@ -55,7 +49,6 @@ exports.chat = async (req, res) => {
       return res.status(400).json({ error: 'The last message must come from the user' });
     }
 
-    // Contexte du profil (facultatif : l'assistant fonctionne même sans).
     const user = req.userId ? await User.findById(req.userId).catch(() => null) : null;
 
     const reply = await generateReply({
