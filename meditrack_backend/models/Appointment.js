@@ -8,23 +8,11 @@ const appointmentSchema = new mongoose.Schema(
       required: true,
     },
     practitioner: {
-      id: Number,
-      lastName: { type: String, required: true },
-      firstName: { type: String, required: true },
-      title: { type: String, default: 'Dr' },
-      specialty: { type: String, required: true },
-      phone: String,
-      email: String,
-      rppsAdeli: String,
+      type: mongoose.Schema.Types.Mixed,
+      required: true,
     },
     facility: {
-      id: Number,
-      name: String,
-      type: String,
-      address: String,
-      buildingFloor: String,
-      latitude: Number,
-      longitude: Number,
+      type: mongoose.Schema.Types.Mixed,
     },
     startDateTime: {
       type: Date,
@@ -45,21 +33,11 @@ const appointmentSchema = new mongoose.Schema(
     },
     modality: {
       type: String,
-      enum: ['presentiel', 'teleconsultation'],
       default: 'presentiel',
     },
     videoUrl: String,
     status: {
       type: String,
-      enum: [
-        'SCHEDULED',
-        'CONFIRMED',
-        'RESCHEDULED',
-        'CANCELLED_BY_PATIENT',
-        'CANCELLED_BY_PRACTITIONER',
-        'COMPLETED',
-        'MISSED',
-      ],
       default: 'SCHEDULED',
     },
   },
@@ -77,4 +55,3 @@ appointmentSchema.set('toJSON', {
 });
 
 module.exports = mongoose.model('Appointment', appointmentSchema);
-

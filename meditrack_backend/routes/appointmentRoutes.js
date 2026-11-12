@@ -14,4 +14,3 @@ router.patch('/:id/status', c.updateStatus);
 router.delete('/:id', c.deleteAppointment);
 
 module.exports = router;
-

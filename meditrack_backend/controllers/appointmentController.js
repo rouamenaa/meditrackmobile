@@ -3,7 +3,8 @@ const Appointment = require('../models/Appointment');
 // GET /appointments : Récupère tous les rendez-vous de l'utilisateur connecté
 exports.getAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find({ userId: req.user.id }).sort({
+    const userId = req.userId || req.user?.id;
+    const appointments = await Appointment.find({ userId }).sort({
       startDateTime: 1,
     });
     res.json(appointments);
@@ -15,9 +16,10 @@ exports.getAppointments = async (req, res) => {
 // GET /appointments/:id : Récupère un rendez-vous par son ID
 exports.getAppointmentById = async (req, res) => {
   try {
+    const userId = req.userId || req.user?.id;
     const appointment = await Appointment.findOne({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
     if (!appointment) {
       return res.status(404).json({ error: 'Rendez-vous introuvable' });
@@ -31,6 +33,7 @@ exports.getAppointmentById = async (req, res) => {
 // POST /appointments : Crée un nouveau rendez-vous
 exports.createAppointment = async (req, res) => {
   try {
+    const userId = req.userId || req.user?.id;
     const {
       practitioner,
       facility,
@@ -48,7 +51,7 @@ exports.createAppointment = async (req, res) => {
     }
 
     const appointment = await Appointment.create({
-      userId: req.user.id,
+      userId,
       practitioner,
       facility,
       startDateTime: new Date(startDateTime),
@@ -69,13 +72,14 @@ exports.createAppointment = async (req, res) => {
 // PUT /appointments/:id : Met à jour un rendez-vous
 exports.updateAppointment = async (req, res) => {
   try {
+    const userId = req.userId || req.user?.id;
     const updateData = { ...req.body };
     if (updateData.startDateTime) {
       updateData.startDateTime = new Date(updateData.startDateTime);
     }
 
     const appointment = await Appointment.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      { _id: req.params.id, userId },
       updateData,
       { new: true, runValidators: true }
     );
@@ -93,13 +97,14 @@ exports.updateAppointment = async (req, res) => {
 // PATCH /appointments/:id/status : Met à jour uniquement le statut
 exports.updateStatus = async (req, res) => {
   try {
+    const userId = req.userId || req.user?.id;
     const { status } = req.body;
     if (!status) {
       return res.status(400).json({ error: 'Statut manquant' });
     }
 
     const appointment = await Appointment.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      { _id: req.params.id, userId },
       { status },
       { new: true }
     );
@@ -117,9 +122,10 @@ exports.updateStatus = async (req, res) => {
 // DELETE /appointments/:id : Supprime un rendez-vous
 exports.deleteAppointment = async (req, res) => {
   try {
+    const userId = req.userId || req.user?.id;
     const result = await Appointment.findOneAndDelete({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
 
     if (!result) {
@@ -131,4 +137,3 @@ exports.deleteAppointment = async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
-

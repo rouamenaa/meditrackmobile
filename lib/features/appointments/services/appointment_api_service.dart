@@ -46,6 +46,7 @@ class AppointmentApiService {
   /// Sauvegarde un rendez-vous dans MongoDB
   Future<bool> createAppointment(Appointment appointment) async {
     try {
+      print('[AppointmentApiService] Envoi vers $_baseUrl...');
       final body = jsonEncode({
         'practitioner': appointment.practitioner?.toMap() ?? {
           'id': appointment.practitionerId,
@@ -68,8 +69,10 @@ class AppointmentApiService {
           .post(Uri.parse(_baseUrl), headers: _headers, body: body)
           .timeout(const Duration(seconds: 8));
 
+      print('[AppointmentApiService] Réponse backend: ${response.statusCode} - ${response.body}');
       return response.statusCode == 201;
-    } catch (_) {
+    } catch (e) {
+      print('[AppointmentApiService] Erreur HTTP: $e');
       return false;
     }
   }

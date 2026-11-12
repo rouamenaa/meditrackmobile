@@ -132,6 +132,10 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
       _selectedTime.minute,
     );
 
+    final provider = context.read<AppointmentProvider>();
+    final practitioners = provider.practitioners;
+    final facilities = provider.facilities;
+
     final appointmentToSave = Appointment(
       id: widget.appointment?.id,
       practitionerId: _practitionerId!,
@@ -145,9 +149,20 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
           ? _videoUrlCtrl.text.trim()
           : null,
       status: _status,
+      practitioner: practitioners.isNotEmpty
+          ? practitioners.firstWhere(
+              (p) => p.id == _practitionerId,
+              orElse: () => practitioners.first,
+            )
+          : null,
+      facility: _facilityId != null && facilities.isNotEmpty
+          ? facilities.firstWhere(
+              (f) => f.id == _facilityId,
+              orElse: () => facilities.first,
+            )
+          : null,
     );
 
-    final provider = context.read<AppointmentProvider>();
     bool success;
     if (_isEdit) {
       success = await provider.updateAppointment(appointmentToSave);
