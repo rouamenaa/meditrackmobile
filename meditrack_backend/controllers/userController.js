@@ -1,23 +1,45 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs/promises');
+const path = require('path');
 const User = require('../models/User');
 const { sendMail, generateCode } = require('../config/mailer');
 
-const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CODE_TTL_MS = 15 * 60 * 1000; 
 
 const sign = (user) =>
   jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
-// Champs modifiables avec PUT
+async function detectPhotoExtension(filePath) {
+  const data = await fs.readFile(filePath);
+  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
+    return '.jpg';
+  }
+  if (data.length >= 8 && data.subarray(0, 8).equals(
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  )) {
+    return '.png';
+  }
+  if (
+    data.length >= 12 &&
+    data.toString('ascii', 0, 4) === 'RIFF' &&
+    data.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return '.webp';
+  }
+  return null;
+}
+
 const EDITABLE = [
   'nom', 'prenom', 'telephone', 'date_naissance', 'sexe',
   'notif_medicaments', 'notif_rdv', 'notif_son', 'notif_vibration',
   'rappel_avant_minutes', 'groupe_sanguin', 'condition_medicale',
   'contact_urgence_nom', 'contact_urgence_lien', 'contact_urgence_tel',
   'assurance_nom', 'assurance_police',
+  // Profil professionnel (médecin)
+  'specialite', 'rpps_adeli', 'etablissement', 'horaires_consultation',
 ];
 
-// Envoie un code de vérification. Renvoie un message d'erreur, ou null si OK.
 async function sendVerificationCode(user) {
   const code = generateCode();
   user.verification_code = code;
@@ -40,7 +62,6 @@ async function sendVerificationCode(user) {
 }
 
 
-// GET /users
 exports.getUsers = async (req, res) => {
   try {
     res.json(await User.find());
@@ -49,7 +70,6 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// POST /users  (inscription)
 exports.register = async (req, res) => {
   try {
     const { nom, prenom, email, password, telephone, date_naissance, sexe, role } = req.body;
@@ -69,7 +89,6 @@ exports.register = async (req, res) => {
       email_verifie: false,
     });
 
-    // Envoi du code de vérification (le compte existe même si l'email échoue)
     const emailError = await sendVerificationCode(user);
 
     res.status(201).json({
@@ -83,7 +102,6 @@ exports.register = async (req, res) => {
   }
 };
 
-// POST /users/login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -91,7 +109,6 @@ exports.login = async (req, res) => {
     if (!user || !(await bcrypt.compare(password || '', user.password))) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
-    // Comptes créés avant l'ajout de la vérification (email_verifie absent) : on laisse passer
     if (user.email_verifie === false) {
       return res.status(403).json({
         error: 'Votre compte n\'est pas encore vérifié. Saisissez le code reçu par email.',
@@ -105,7 +122,6 @@ exports.login = async (req, res) => {
   }
 };
 
-// POST /users/verify/send  (renvoyer un code de vérification)
 exports.sendVerification = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -147,7 +163,6 @@ exports.confirmVerification = async (req, res) => {
   }
 };
 
-// POST /users/forgot-password  { email }
 exports.forgotPassword = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -180,7 +195,6 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// POST /users/reset-password  { email, code, new_password }
 exports.resetPassword = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -201,7 +215,7 @@ exports.resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(new_password, 10);
     user.reset_code = undefined;
     user.reset_expires = undefined;
-    user.email_verifie = true; // l'accès à l'email est prouvé
+    user.email_verifie = true; 
     await user.save();
     res.json({ ok: true });
   } catch (e) {
@@ -209,7 +223,20 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// GET /users/:id
+exports.getDoctors = async (req, res) => {
+  try {
+    const doctors = await User.find({
+      role: 'medecin',
+      email_verifie: { $ne: false },
+    })
+      .select('nom prenom email telephone specialite rpps_adeli etablissement horaires_consultation photo')
+      .sort({ nom: 1, prenom: 1 });
+    res.json(doctors);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
 exports.getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
@@ -257,17 +284,38 @@ exports.changePassword = async (req, res) => {
 
 // POST /users/:id/photo  (form-data, champ "image")
 exports.uploadPhoto = async (req, res) => {
+  let storedPath;
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Image manquante (jpeg, png ou webp, 5 Mo max)' });
+      return res.status(400).json({
+        error: 'Choose a JPEG, PNG, or WebP image smaller than 5 MB.',
+      });
     }
+    const extension = await detectPhotoExtension(req.file.path);
+    if (!extension) {
+      await fs.unlink(req.file.path);
+      return res.status(415).json({
+        error: 'This image format is not supported. Choose a JPEG, PNG, or WebP image.',
+      });
+    }
+    const filename = `${path.parse(req.file.filename).name}${extension}`;
+    storedPath = path.join(path.dirname(req.file.path), filename);
+    if (storedPath !== req.file.path) {
+      await fs.rename(req.file.path, storedPath);
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { photo: `uploads/${req.file.filename}` },
+      { photo: `uploads/${filename}` },
       { new: true }
     );
+    if (!user) {
+      await fs.unlink(storedPath);
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json(user);
   } catch (e) {
+    if (storedPath) await fs.unlink(storedPath).catch(() => {});
     res.status(500).json({ error: e.message });
   }
 };

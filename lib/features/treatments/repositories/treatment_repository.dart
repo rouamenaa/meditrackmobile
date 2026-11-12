@@ -11,10 +11,18 @@
 ///  - Stop : l'historique est conservé, les prises futures annulées
 ///  - Completed : attribué automatiquement quand endDate est passé
 ///  - Modifier dose/horaires régénère UNIQUEMENT les prises futures
+///
+/// Sync (Option B) : en plus du local, on pousse vers le backend
+/// /treatments (JWT). Le local reste la source de vérité offline.
 /// ============================================================
 library;
 
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+
 import 'package:meditrackmobile/database/database_helper.dart';
+import 'package:meditrackmobile/features/auth/services/api_service.dart';
+import 'package:meditrackmobile/features/auth/services/session.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/treatment.dart';
@@ -92,6 +100,7 @@ class TreatmentRepository {
       CREATE TABLE IF NOT EXISTS treatments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
+        medication_id INTEGER,
         medication_name TEXT NOT NULL,
         medication_dosage TEXT,
         dose TEXT NOT NULL,
@@ -101,6 +110,13 @@ class TreatmentRepository {
         status TEXT NOT NULL DEFAULT 'active'
       )
     ''');
+    // Migration douce : base existante créée avant le lien médicament.
+    try {
+      await db.execute(
+          'ALTER TABLE treatments ADD COLUMN medication_id INTEGER');
+    } catch (_) {
+      // colonne déjà présente
+    }
     await db.execute('''
       CREATE TABLE IF NOT EXISTS intake_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +130,130 @@ class TreatmentRepository {
     return db;
   }
 
+  /// Sync API client (lazy init)
+  ApiService? _api;
+  ApiService get _apiService => _api ??= ApiService();
+
+  String get _userId => Session.instance.user?.id ?? '';
+
+  /// Push a single treatment to backend (fire-and-forget, non-blocking)
+  Future<void> _pushCreate(Treatment t) async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: sync CREATE skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync CREATE -> POST /treatments');
+      final resp = await _apiService.post('/treatments', _treatmentToBackend(t));
+      debugPrint('MediTrack: sync CREATE OK: $resp');
+    } catch (e) {
+      debugPrint('MediTrack: sync CREATE failed: $e');
+    }
+  }
+
+  Future<void> _pushUpdate(Treatment t) async {
+    if (_userId.isEmpty || t.id == null) {
+      debugPrint('MediTrack: sync UPDATE skipped - no userId or id');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync UPDATE -> PUT /treatments/${t.id}');
+      final resp = await _apiService.put('/treatments/${t.id}', _treatmentToBackend(t));
+      debugPrint('MediTrack: sync UPDATE OK: $resp');
+    } catch (e) {
+      debugPrint('MediTrack: sync UPDATE failed: $e');
+    }
+  }
+
+  Future<void> _pushDelete(int id) async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: sync DELETE skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync DELETE -> DELETE /treatments/$id');
+      await _apiService.delete('/treatments/$id');
+      debugPrint('MediTrack: sync DELETE OK');
+    } catch (e) {
+      debugPrint('MediTrack: sync DELETE failed: $e');
+    }
+  }
+
+  Future<void> _pushStop(int id) async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: sync STOP skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync STOP -> PUT /treatments/$id (status: stopped)');
+      await _apiService.put('/treatments/$id', {'status': 'stopped'});
+      debugPrint('MediTrack: sync STOP OK');
+    } catch (e) {
+      debugPrint('MediTrack: sync STOP failed: $e');
+    }
+  }
+
+  Map<String, dynamic> _treatmentToBackend(Treatment t) => {
+        'medicationId': t.medicationId,
+        'medicationName': t.medicationName,
+        'medicationDosage': t.medicationDosage,
+        'dose': t.dose,
+        'reminderTimes': t.reminderTimes,
+        'startDate': Treatment.dateIso(t.startDate),
+        'endDate': t.endDate != null ? Treatment.dateIso(t.endDate!) : null,
+        'status': t.status.name,
+      };
+
+  /// Pull treatments from backend and upsert locally (call on app start/refresh)
+  Future<void> syncFromBackend() async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: syncFromBackend skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: syncFromBackend -> GET /treatments');
+      final data = await _apiService.get('/treatments');
+      final list = (data as List?) ?? const [];
+      debugPrint('MediTrack: syncFromBackend got ${list.length} treatments');
+      final db = await _db;
+      for (final item in list) {
+        final map = Map<String, dynamic>.from(item as Map);
+        final backendId = map['id'] as String?;
+        if (backendId == null) continue;
+        final existing = await db.query('treatments',
+            where: 'user_id = ? AND medication_name = ? AND start_date = ?',
+            whereArgs: [_userId, map['medicationName'], map['startDate']],
+            limit: 1);
+        final treatment = Treatment(
+          id: existing.isNotEmpty ? existing.first['id'] as int? : null,
+          userId: _userId,
+          medicationId: map['medicationId'] is int
+              ? map['medicationId'] as int
+              : int.tryParse('${map['medicationId'] ?? ''}'),
+          medicationName: map['medicationName'] as String? ?? '',
+          medicationDosage: map['medicationDosage'] as String?,
+          dose: map['dose'] as String? ?? '1 dose',
+          reminderTimes: (map['reminderTimes'] as List?)?.map((e) => e.toString()).toList() ??
+              (map['reminderTimes'] as String?)?.split(',').where((e) => e.trim().isNotEmpty).toList() ??
+              [],
+          startDate: DateTime.parse((map['startDate'] as String).substring(0, 10)),
+          endDate: map['endDate'] != null
+              ? DateTime.parse((map['endDate'] as String).substring(0, 10))
+              : null,
+          status: treatmentStatusFromString(map['status'] as String? ?? 'active'),
+        );
+        if (existing.isNotEmpty) {
+          await db.update('treatments', treatment.toMap(),
+              where: 'id = ?', whereArgs: [existing.first['id']]);
+        } else {
+          await db.insert('treatments', treatment.toMap()..remove('id'));
+        }
+      }
+    } catch (e) {
+      debugPrint('MediTrack: syncFromBackend failed: $e');
+    }
+  }
+
   final _now = DateTime.now; // évite les réécritures
   String get _nowIso => _now().toIso8601String();
 
@@ -125,6 +265,7 @@ class TreatmentRepository {
     final id = await db.insert('treatments', t.toMap()..remove('id'));
     final created = await _getById(id);
     await _generateLogs(created);
+    unawaited(_pushCreate(created)); // sync to backend (non-blocking)
     return created;
   }
 
@@ -191,6 +332,7 @@ class TreatmentRepository {
         fresh.status == TreatmentStatus.planned) {
       await _generateLogs(fresh, from: _dayStart(_now()));
     }
+    unawaited(_pushUpdate(fresh)); // sync to backend
     return count;
   }
 
@@ -200,7 +342,9 @@ class TreatmentRepository {
     // cascade manuelle : plus sûr que de dépendre du pragma
     await db.delete('intake_logs',
         where: 'treatment_id = ?', whereArgs: [id]);
-    return db.delete('treatments', where: 'id = ?', whereArgs: [id]);
+    final count = await db.delete('treatments', where: 'id = ?', whereArgs: [id]);
+    unawaited(_pushDelete(id)); // sync to backend
+    return count;
   }
 
   /// STOP du cycle de vie : historique conservé, futures prises annulées.
@@ -210,6 +354,7 @@ class TreatmentRepository {
         {'status': TreatmentStatus.stopped.name},
         where: 'id = ?', whereArgs: [id]);
     await _deleteFutureLogsById(id);
+    unawaited(_pushStop(id)); // sync to backend
     return count;
   }
 
@@ -239,21 +384,26 @@ class TreatmentRepository {
     );
   }
 
-  /// Bouton "Valider la prise" de la carte : marque la prochaine prise
-  /// du jour (la plus proche) comme prise.
+  /// Bouton "Valider la prise" : marque la prochaine prise en attente
+  /// du jour comme prise (la plus proche, passée ou à venir aujourd'hui).
   Future<bool> logNextDose(int treatmentId) async {
     final db = await _db;
+    await _reconcileMissed();
+    final todayStart = _dayToIso(_now());
+    final tomorrow = _dayStart(_now().add(const Duration(days: 1)));
     final rows = await db.query(
       'intake_logs',
+      columns: ['id'],
       where:
-          'treatment_id = ? AND status = ? AND scheduled_at < ? '
-          'AND scheduled_at >= ?',
+          'treatment_id = ? AND status = ? AND scheduled_at >= ? '
+          'AND scheduled_at < ?',
       whereArgs: [
         treatmentId,
         IntakeStatus.pending.name,
-        _nowIso,
-        _dayToIso(_now()),
+        todayStart,
+        tomorrow.toIso8601String(),
       ],
+      orderBy: 'scheduled_at ASC',
       limit: 1,
     );
     if (rows.isEmpty) return false;
@@ -263,12 +413,13 @@ class TreatmentRepository {
 
   // ================= Vue d'ensemble (écran principal) =================
 
-  /// Un seul aller-retour SQL -> liste + adhérence.
-  /// Passe aussi automatiquement les traitements "active"
-  /// dont la date de fin est passée en "completed".
+  /// Vue d'ensemble (1 seul Future -> 1 seul FutureBuilder dans l'écran)
+  /// - auto-complète les traitements dont la fin est passée
+  /// - marque en "manquée" les prises en attente dont l'horaire est dépassé
   Future<TreatmentOverview> overview(String userId) async {
     final db = await _db;
     await _autoComplete();
+    await _reconcileMissed();
 
     // ---- adhérence 7 derniers jours (sur prises passées uniquement)
     final weekRows = await db.rawQuery('''
@@ -383,6 +534,18 @@ class TreatmentRepository {
       where: "status IN ('active', 'planned') AND end_date IS NOT NULL "
           'AND end_date < ?',
       whereArgs: [_dayToIso(_now())],
+    );
+  }
+
+  /// Marque en "manquée" toute prise encore en attente dont l'horaire
+  /// planifié est dépassé. L'historique reste intact (jamais supprimé).
+  Future<int> _reconcileMissed() async {
+    final db = await _db;
+    return db.update(
+      'intake_logs',
+      {'status': IntakeStatus.missed.name},
+      where: 'status = ? AND scheduled_at < ?',
+      whereArgs: [IntakeStatus.pending.name, _nowIso],
     );
   }
 

@@ -1,139 +1,180 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
+const User = require('../models/User');
 
-// GET /appointments : Récupère tous les rendez-vous de l'utilisateur connecté
-exports.getAppointments = async (req, res) => {
+const DOCTOR_FIELDS =
+  'nom prenom email telephone specialite rpps_adeli etablissement';
+
+function toResponse(appointment) {
+  const doctor = appointment.doctor;
+  const patient = appointment.patient;
+  return {
+    id: appointment._id.toString(),
+    doctor_user_id: doctor?._id?.toString() || appointment.doctor?.toString(),
+    doctor: doctor && typeof doctor === 'object' && doctor.nom
+      ? {
+          id: doctor._id.toString(),
+          nom: doctor.nom,
+          prenom: doctor.prenom,
+          email: doctor.email,
+          telephone: doctor.telephone,
+          specialite: doctor.specialite,
+          rpps_adeli: doctor.rpps_adeli,
+          etablissement: doctor.etablissement,
+        }
+      : appointment.practitioner || null,
+    patient_id: patient?._id?.toString() || appointment.patient?.toString() || appointment.userId?.toString(),
+    patient_name:
+      patient && typeof patient === 'object' && patient.nom
+        ? `${patient.prenom} ${patient.nom}`.trim()
+        : '',
+    start_date_time: (appointment.start_date_time || appointment.startDateTime || new Date()).toISOString(),
+    startDateTime: appointment.startDateTime || appointment.start_date_time,
+    duration_minutes: appointment.duration_minutes || appointment.durationMinutes || 30,
+    durationMinutes: appointment.durationMinutes || appointment.duration_minutes || 30,
+    reason: appointment.reason,
+    notes: appointment.notes,
+    modality: appointment.modality,
+    video_url: appointment.video_url || appointment.videoUrl,
+    videoUrl: appointment.videoUrl || appointment.video_url,
+    facility_name: appointment.facility_name,
+    facility_address: appointment.facility_address,
+    facility: appointment.facility,
+    practitioner: appointment.practitioner,
+    status: appointment.status,
+  };
+}
+
+function populated(query) {
+  return query
+    .populate('doctor', DOCTOR_FIELDS)
+    .populate('patient', 'nom prenom');
+}
+
+// GET /appointments
+exports.listMine = async (req, res) => {
   try {
-    const userId = req.userId || req.user?.id;
-    const appointments = await Appointment.find({ userId }).sort({
-      startDateTime: 1,
-    });
-    res.json(appointments);
+    const user = await User.findById(req.userId).select('role');
+    const filter = user?.role === 'medecin'
+      ? { $or: [{ doctor: req.userId }, { userId: req.userId }] }
+      : { $or: [{ patient: req.userId }, { userId: req.userId }] };
+
+    const appointments = await populated(
+      Appointment.find(filter).sort({ start_date_time: 1, startDateTime: 1 })
+    );
+    res.json(appointments.map(toResponse));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-// GET /appointments/:id : Récupère un rendez-vous par son ID
+// GET par ID
 exports.getAppointmentById = async (req, res) => {
   try {
-    const userId = req.userId || req.user?.id;
-    const appointment = await Appointment.findOne({
-      _id: req.params.id,
-      userId,
-    });
-    if (!appointment) {
-      return res.status(404).json({ error: 'Rendez-vous introuvable' });
-    }
-    res.json(appointment);
+    const id = req.params.appointmentId || req.params.id;
+    const appointment = await populated(Appointment.findById(id));
+    if (!appointment) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+    res.json(toResponse(appointment));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-// POST /appointments : Crée un nouveau rendez-vous
-exports.createAppointment = async (req, res) => {
+// POST /appointments
+exports.create = async (req, res) => {
   try {
-    const userId = req.userId || req.user?.id;
     const {
+      doctor_user_id,
       practitioner,
       facility,
+      start_date_time,
       startDateTime,
+      duration_minutes,
       durationMinutes,
       reason,
       notes,
       modality,
+      video_url,
       videoUrl,
+      facility_name,
+      facility_address,
       status,
     } = req.body;
 
-    if (!reason || !startDateTime || !practitioner) {
-      return res.status(400).json({ error: 'Champs obligatoires manquants' });
+    const start = new Date(start_date_time || startDateTime);
+    const duration = Number(duration_minutes || durationMinutes || 30);
+    const visitMode = modality === 'teleconsultation' ? 'teleconsultation' : 'presentiel';
+
+    let doctorId = null;
+    if (doctor_user_id && mongoose.isValidObjectId(doctor_user_id)) {
+      doctorId = doctor_user_id;
     }
 
     const appointment = await Appointment.create({
-      userId,
-      practitioner,
-      facility,
-      startDateTime: new Date(startDateTime),
-      durationMinutes: durationMinutes || 30,
-      reason,
-      notes,
-      modality: modality || 'presentiel',
-      videoUrl,
+      patient: req.userId,
+      userId: req.userId,
+      doctor: doctorId,
+      practitioner: practitioner || null,
+      facility: facility || null,
+      start_date_time: start,
+      startDateTime: start,
+      duration_minutes: duration,
+      durationMinutes: duration,
+      reason: String(reason || '').trim(),
+      notes: notes == null ? '' : String(notes).trim(),
+      modality: visitMode,
+      video_url: video_url || videoUrl || null,
+      videoUrl: videoUrl || video_url || null,
+      facility_name: facility_name || facility?.name || '',
+      facility_address: facility_address || facility?.address || '',
       status: status || 'SCHEDULED',
     });
 
-    res.status(201).json(appointment);
+    const result = await populated(Appointment.findById(appointment._id));
+    res.status(201).json(toResponse(result));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-// PUT /appointments/:id : Met à jour un rendez-vous
-exports.updateAppointment = async (req, res) => {
+// PUT /appointments/:appointmentId
+exports.update = async (req, res) => {
   try {
-    const userId = req.userId || req.user?.id;
-    const updateData = { ...req.body };
-    if (updateData.startDateTime) {
-      updateData.startDateTime = new Date(updateData.startDateTime);
+    const id = req.params.appointmentId || req.params.id;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+
+    Object.assign(appointment, req.body);
+    if (req.body.start_date_time || req.body.startDateTime) {
+      const d = new Date(req.body.start_date_time || req.body.startDateTime);
+      appointment.start_date_time = d;
+      appointment.startDateTime = d;
     }
 
-    const appointment = await Appointment.findOneAndUpdate(
-      { _id: req.params.id, userId },
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!appointment) {
-      return res.status(404).json({ error: 'Rendez-vous introuvable' });
-    }
-
-    res.json(appointment);
+    await appointment.save();
+    const result = await populated(Appointment.findById(appointment._id));
+    res.json(toResponse(result));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-// PATCH /appointments/:id/status : Met à jour uniquement le statut
-exports.updateStatus = async (req, res) => {
+// DELETE /appointments/:appointmentId
+exports.remove = async (req, res) => {
   try {
-    const userId = req.userId || req.user?.id;
-    const { status } = req.body;
-    if (!status) {
-      return res.status(400).json({ error: 'Statut manquant' });
-    }
-
-    const appointment = await Appointment.findOneAndUpdate(
-      { _id: req.params.id, userId },
-      { status },
-      { new: true }
-    );
-
-    if (!appointment) {
-      return res.status(404).json({ error: 'Rendez-vous introuvable' });
-    }
-
-    res.json(appointment);
+    const id = req.params.appointmentId || req.params.id;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+    await appointment.deleteOne();
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-// DELETE /appointments/:id : Supprime un rendez-vous
-exports.deleteAppointment = async (req, res) => {
-  try {
-    const userId = req.userId || req.user?.id;
-    const result = await Appointment.findOneAndDelete({
-      _id: req.params.id,
-      userId,
-    });
-
-    if (!result) {
-      return res.status(404).json({ error: 'Rendez-vous introuvable' });
-    }
-
-    res.json({ ok: true, message: 'Rendez-vous supprimé avec succès' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-};
+// Aliases pour rétrocompatibilité
+exports.getAppointments = exports.listMine;
+exports.createAppointment = exports.create;
+exports.updateAppointment = exports.update;
+exports.deleteAppointment = exports.remove;
+exports.updateStatus = exports.update;

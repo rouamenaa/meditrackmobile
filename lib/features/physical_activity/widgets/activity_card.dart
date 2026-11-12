@@ -13,189 +13,242 @@ class ActivityCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  Color _getIntensityColor(String intensity) {
-    switch (intensity.trim().toLowerCase()) {
-      case 'faible':
-        return const Color(0xFF2E7D32); // Vert
-      case 'élevée':
-      case 'elevee':
-        return const Color(0xFFC62828); // Rouge
-      case 'modérée':
-      case 'moderee':
-      default:
-        return const Color(0xFFEF6C00); // Orange
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year;
-    return '$day/$month/$year';
+  String _formatDateTime(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    final year = dt.year;
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year à $hour:$minute';
   }
 
   @override
   Widget build(BuildContext context) {
     const kPrimaryGreen = Color(0xFF0B6B5D);
-    final intensityColor = _getIntensityColor(activity.intensity);
+    const kNavy = Color(0xFF0A2540);
+    final intensityColor = activity.intensityColor;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 1.5,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey.shade200),
       ),
       color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête : Icône, Type, Date, Intensité et Actions
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: kPrimaryGreen.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onEdit,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // En-tête : Icône, Type, Date & Heure, Intensité et Menu actions
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: kPrimaryGreen.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      activity.icon,
+                      color: kPrimaryGreen,
+                      size: 24,
+                    ),
                   ),
-                  child: Icon(
-                    activity.icon,
-                    color: kPrimaryGreen,
-                    size: 26,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          activity.type,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: kNavy,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              _formatDateTime(activity.activityDate),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            if (activity.activityDate.isAfter(DateTime.now()))
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: kPrimaryGreen.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.notifications_active,
+                                        size: 11, color: kPrimaryGreen),
+                                    SizedBox(width: 3),
+                                    Text(
+                                      'Rappel -5 min',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: kPrimaryGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        activity.type,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0A2540),
+                  // Badge d'intensité
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: intensityColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: intensityColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      activity.intensity,
+                      style: TextStyle(
+                        color: intensityColor,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  // Menu d'actions (Modifier / Supprimer)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.grey, size: 22),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        onEdit();
+                      } else if (value == 'delete') {
+                        onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined,
+                                size: 19, color: kPrimaryGreen),
+                            SizedBox(width: 10),
+                            Text('Modifier'),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _formatDate(activity.activityDate),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline,
+                                size: 19, color: Colors.redAccent),
+                            SizedBox(width: 10),
+                            Text('Supprimer',
+                                style: TextStyle(color: Colors.redAccent)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Divider(height: 22, thickness: 0.8),
+              // Métriques : Durée, Distance, Allure, Vitesse, Calories
+              Wrap(
+                spacing: 14,
+                runSpacing: 8,
+                children: [
+                  _buildMetric(
+                    icon: Icons.timer_outlined,
+                    label: '${activity.durationMinutes} min',
+                    color: kNavy,
+                  ),
+                  if (activity.distanceKm != null)
+                    _buildMetric(
+                      icon: Icons.route_outlined,
+                      label: '${activity.distanceKm!.toStringAsFixed(1)} km',
+                      color: kPrimaryGreen,
+                    ),
+                  if (activity.paceLabel != null &&
+                      (activity.type.toLowerCase().contains('marche') ||
+                          activity.type.toLowerCase().contains('course')))
+                    _buildMetric(
+                      icon: Icons.speed_rounded,
+                      label: activity.paceLabel!,
+                      color: const Color(0xFF0058BD),
+                    ),
+                  if (activity.speedKmh != null &&
+                      activity.type.toLowerCase().contains('vélo'))
+                    _buildMetric(
+                      icon: Icons.speed_rounded,
+                      label: '${activity.speedKmh!.toStringAsFixed(1)} km/h',
+                      color: const Color(0xFF0058BD),
+                    ),
+                  if (activity.caloriesBurned != null)
+                    _buildMetric(
+                      icon: Icons.local_fire_department_outlined,
+                      label: '${activity.caloriesBurned} kcal',
+                      color: Colors.deepOrange,
+                    ),
+                ],
+              ),
+              // Notes éventuelles
+              if (activity.notes != null && activity.notes!.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.sticky_note_2_outlined,
+                          size: 15, color: Colors.grey.shade600),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          activity.notes!,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade700,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Badge d'intensité
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: intensityColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: intensityColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    activity.intensity,
-                    style: TextStyle(
-                      color: intensityColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                // Menu d'actions (Modifier / Supprimer)
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.grey),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      onEdit();
-                    } else if (value == 'delete') {
-                      onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined,
-                              size: 20, color: kPrimaryGreen),
-                          SizedBox(width: 10),
-                          Text('Modifier'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline,
-                              size: 20, color: Colors.redAccent),
-                          SizedBox(width: 10),
-                          Text('Supprimer',
-                              style: TextStyle(color: Colors.redAccent)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
               ],
-            ),
-            const Divider(height: 24, thickness: 0.8),
-            // Métriques : Durée, Distance, Calories
-            Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                _buildMetric(
-                  icon: Icons.timer_outlined,
-                  label: '${activity.durationMinutes} min',
-                ),
-                if (activity.distanceKm != null)
-                  _buildMetric(
-                    icon: Icons.route_outlined,
-                    label: '${activity.distanceKm!.toStringAsFixed(1)} km',
-                  ),
-                if (activity.caloriesBurned != null)
-                  _buildMetric(
-                    icon: Icons.local_fire_department_outlined,
-                    label: '${activity.caloriesBurned} kcal',
-                    color: Colors.deepOrange,
-                  ),
-              ],
-            ),
-            // Notes éventuelles
-            if (activity.notes != null && activity.notes!.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Text(
-                  activity.notes!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -204,22 +257,29 @@ class ActivityCard extends StatelessWidget {
   Widget _buildMetric({
     required IconData icon,
     required String label,
-    Color color = const Color(0xFF0B6B5D),
+    required Color color,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF0A2540),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

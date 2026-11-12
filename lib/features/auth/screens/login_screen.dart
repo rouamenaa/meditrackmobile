@@ -76,32 +76,33 @@ class _LoginScreenState extends State<LoginScreen> {
       final supported =
           (await auth.canCheckBiometrics) || (await auth.isDeviceSupported());
       if (!supported) {
-        _snack('Biométrie non disponible sur cet appareil');
+        _snack('Biometrics not available on this device');
         return;
       }
 
       final savedId = await Session.instance.loadSavedUserId();
       if (savedId == null) {
-        _snack('Aucune session enregistrée. Connecte-toi d\'abord avec ton email.');
+        _snack('No saved session. Log in first with your email.');
         return;
       }
 
       final ok = await auth.authenticate(
-        localizedReason: 'Connexion à MediTrack',
+        localizedReason: 'Sign in to MediTrack',
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
       if (!ok) {
-        _snack('Authentification annulée');
+        _snack('Authentication cancelled');
         return;
       }
 
       setState(() => _loading = true);
-      final user = await UserRepository().restoreSession();
+      final user =
+          await UserRepository().restoreSession(afterBiometric: true);
       if (!mounted) return;
       if (user == null) {
         setState(() => _loading = false);
-        _snack('Session expirée, reconnecte-toi avec tes identifiants.');
+        _snack('Session expired, please log in again with your credentials.');
         return;
       }
       Navigator.of(context).pushReplacement(
@@ -110,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _snack('Biométrie indisponible : $e');
+      _snack('Biometrics unavailable: $e');
     }
   }
 
@@ -251,10 +252,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   _fieldDecoration('name@example.com', Icons.mail_outline),
                   validator: (v) {
                     final value = v?.trim() ?? '';
-                    if (value.isEmpty) return 'Email obligatoire';
+                    if (value.isEmpty) return 'Email is required';
                     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                         .hasMatch(value)) {
-                      return 'Email invalide';
+                      return 'Invalid email';
                     }
                     return null;
                   },
@@ -297,7 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   validator: (v) => (v == null || v.isEmpty)
-                      ? 'Mot de passe obligatoire'
+                      ? 'Password is required'
                       : null,
                 ),
                 const SizedBox(height: 14),
@@ -368,7 +369,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ----- Face ID / Touch ID -----
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: _loading ? null : _biometricLogin,
@@ -394,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Face ID / Touch ID',
+                              Text('Touch ID',
                                   style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 15)),

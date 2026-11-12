@@ -16,19 +16,17 @@ function getTransporter() {
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port,
-    secure: port === 465, // SSL direct sur 465, STARTTLS sinon
+    secure: port === 465, 
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
   return transporter;
 }
 
-// Envoie un email. Lève une erreur si la config SMTP est absente ou l'envoi échoue.
 async function sendMail({ to, subject, html, text }) {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   await getTransporter().sendMail({ from, to, subject, html, text });
 }
 
-// Génère un code numérique à 6 chiffres
 function generateCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }

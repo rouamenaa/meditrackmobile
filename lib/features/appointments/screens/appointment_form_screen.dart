@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../auth/models/user.dart';
 import '../models/appointment.dart';
 import '../models/appointment_status.dart';
+import '../models/practitioner.dart';
 import '../services/appointment_provider.dart';
 
 const _kGreen = Color(0xFF0B6B5D);
@@ -9,9 +12,14 @@ const _kNavy = Color(0xFF0A2540);
 const _kBackground = Color(0xFFF8F7FF);
 
 class AppointmentFormScreen extends StatefulWidget {
+  final User user;
   final Appointment? appointment;
 
-  const AppointmentFormScreen({super.key, this.appointment});
+  const AppointmentFormScreen({
+    super.key,
+    required this.user,
+    this.appointment,
+  });
 
   @override
   State<AppointmentFormScreen> createState() => _AppointmentFormScreenState();
@@ -34,6 +42,7 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
   final _scrollController = ScrollController();
 
   bool _isSaving = false;
+  bool _requestedPractitioners = false;
 
   bool get _isEdit => widget.appointment != null;
 
@@ -56,7 +65,13 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
       _practitionerId = null;
       _facilityId = null;
       final tomorrow = DateTime.now().add(const Duration(days: 1));
-      _selectedDate = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 10, 0);
+      _selectedDate = DateTime(
+        tomorrow.year,
+        tomorrow.month,
+        tomorrow.day,
+        10,
+        0,
+      );
       _selectedTime = const TimeOfDay(hour: 10, minute: 0);
       _durationMinutes = 30;
       _modality = 'presentiel';
@@ -71,6 +86,19 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
     _videoUrlCtrl.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_requestedPractitioners) {
+      _requestedPractitioners = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<AppointmentProvider>().loadAll(user: widget.user);
+        }
+      });
+    }
   }
 
   Future<void> _pickDate() async {
@@ -115,9 +143,25 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final provider = context.read<AppointmentProvider>();
     if (_practitionerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un praticien')),
+        const SnackBar(content: Text('Please select a registered doctor')),
+      );
+      return;
+    }
+    Practitioner? selectedDoctor;
+    for (final doctor in provider.practitioners) {
+      if (doctor.id == _practitionerId) {
+        selectedDoctor = doctor;
+        break;
+      }
+    }
+    if (selectedDoctor?.remoteUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This doctor account is no longer available'),
+        ),
       );
       return;
     }
@@ -132,20 +176,41 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
       _selectedTime.minute,
     );
 
-    final provider = context.read<AppointmentProvider>();
     final practitioners = provider.practitioners;
     final facilities = provider.facilities;
 
     final appointmentToSave = Appointment(
       id: widget.appointment?.id,
+      remoteId: widget.appointment?.remoteId,
       practitionerId: _practitionerId!,
+      doctorUserId: selectedDoctor!.remoteUserId,
       facilityId: _modality == 'presentiel' ? _facilityId : null,
+      facilityName: _modality == 'presentiel'
+          ? (provider.facilities.any((f) => f.id == _facilityId)
+                ? provider.facilities
+                      .firstWhere((f) => f.id == _facilityId)
+                      .name
+                : null)
+          : null,
+      facilityAddress: _modality == 'presentiel'
+          ? (provider.facilities.any((f) => f.id == _facilityId)
+                ? provider.facilities
+                      .firstWhere((f) => f.id == _facilityId)
+                      .fullAddress
+                : null)
+          : null,
+      // En édition, on conserve le patient d'origine ; en création, c'est
+      // l'utilisateur connecté qui réserve le rendez-vous.
+      patientId: widget.appointment?.patientId ?? widget.user.id,
+      patientName: widget.appointment?.patientName ?? widget.user.fullName,
       startDateTime: startDateTime,
       durationMinutes: _durationMinutes,
       reason: _reasonCtrl.text.trim(),
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       modality: _modality,
-      videoUrl: _modality == 'teleconsultation' && _videoUrlCtrl.text.trim().isNotEmpty
+      videoUrl:
+          _modality == 'teleconsultation' &&
+              _videoUrlCtrl.text.trim().isNotEmpty
           ? _videoUrlCtrl.text.trim()
           : null,
       status: _status,
@@ -165,9 +230,15 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
 
     bool success;
     if (_isEdit) {
-      success = await provider.updateAppointment(appointmentToSave);
+      success = await provider.updateAppointment(
+        appointmentToSave,
+        user: widget.user,
+      );
     } else {
-      success = await provider.addAppointment(appointmentToSave);
+      success = await provider.addAppointment(
+        appointmentToSave,
+        user: widget.user,
+      );
     }
 
     if (!mounted) return;
@@ -176,7 +247,7 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEdit ? 'Rendez-vous mis à jour' : 'Rendez-vous enregistré'),
+          content: Text(_isEdit ? 'Appointment updated' : 'Appointment saved'),
           backgroundColor: _kGreen,
         ),
       );
@@ -184,7 +255,7 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(provider.errorMessage ?? 'Une erreur est survenue'),
+          content: Text(provider.errorMessage ?? 'An error occurred'),
           backgroundColor: const Color(0xFFD32F2F),
         ),
       );
@@ -215,10 +286,15 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppointmentProvider>();
-    final practitioners = provider.practitioners;
+    final practitioners = provider.practitioners
+        .where((p) => p.remoteUserId != null && p.remoteUserId!.isNotEmpty)
+        .toList();
     final facilities = provider.facilities;
 
-    // Définir praticien par défaut si non sélectionné et liste non vide
+    if (_practitionerId != null &&
+        !practitioners.any((p) => p.id == _practitionerId)) {
+      _practitionerId = null;
+    }
     if (_practitionerId == null && practitioners.isNotEmpty) {
       _practitionerId = practitioners.first.id;
     }
@@ -227,7 +303,7 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
       backgroundColor: _kBackground,
       appBar: AppBar(
         title: Text(
-          _isEdit ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous',
+          _isEdit ? 'Edit appointment' : 'New appointment',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -243,7 +319,9 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
           radius: const Radius.circular(8),
           child: SingleChildScrollView(
             controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
             child: Form(
@@ -255,8 +333,12 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                   // MODALITÉ : Présentiel vs Téléconsultation
                   // ---------------------------------------------------------------
                   const Text(
-                    'Modalité de consultation',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
+                    'Consultation modality',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _kNavy,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -270,14 +352,16 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                               children: const [
                                 Icon(Icons.person_outline, size: 18),
                                 SizedBox(width: 6),
-                                Text('Présentiel'),
+                                Text('In-person'),
                               ],
                             ),
                           ),
                           selected: _modality == 'presentiel',
                           selectedColor: _kGreen.withValues(alpha: 0.15),
                           labelStyle: TextStyle(
-                            color: _modality == 'presentiel' ? _kGreen : Colors.grey.shade700,
+                            color: _modality == 'presentiel'
+                                ? _kGreen
+                                : Colors.grey.shade700,
                             fontWeight: FontWeight.w600,
                           ),
                           onSelected: (val) {
@@ -295,7 +379,7 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                               children: const [
                                 Icon(Icons.videocam_outlined, size: 18),
                                 SizedBox(width: 6),
-                                Text('Téléconsultation'),
+                                Text('Teleconsultation'),
                               ],
                             ),
                           ),
@@ -307,7 +391,9 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                                 : Colors.grey.shade700,
                           ),
                           onSelected: (val) {
-                            if (val) setState(() => _modality = 'teleconsultation');
+                            if (val) {
+                              setState(() => _modality = 'teleconsultation');
+                            }
                           },
                         ),
                       ),
@@ -319,14 +405,30 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                   // PRATICIEN
                   // ---------------------------------------------------------------
                   const Text(
-                    'Praticien',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
+                    'Practitioner',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _kNavy,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     initialValue: _practitionerId,
                     isExpanded: true,
-                    decoration: _inputDeco('Sélectionner un médecin', Icons.medical_services_outlined),
+                    decoration:
+                        _inputDeco(
+                          'Select a doctor',
+                          Icons.medical_services_outlined,
+                        ).copyWith(
+                          helperText: provider.isLoading
+                              ? 'Loading registered doctors...'
+                              : practitioners.isEmpty
+                              ? provider.errorMessage == null
+                                    ? 'No verified doctor accounts are available'
+                                    : 'Could not load the doctor list'
+                              : null,
+                        ),
                     items: practitioners.map((p) {
                       return DropdownMenuItem<int>(
                         value: p.id,
@@ -336,9 +438,23 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) => setState(() => _practitionerId = val),
-                    validator: (val) => val == null ? 'Veuillez choisir un praticien' : null,
+                    onChanged: practitioners.isEmpty
+                        ? null
+                        : (val) => setState(() => _practitionerId = val),
+                    validator: (val) =>
+                        val == null ? 'Please choose a practitioner' : null,
                   ),
+                  if (practitioners.isEmpty &&
+                      !provider.isLoading &&
+                      provider.errorMessage != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => provider.loadAll(user: widget.user),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ),
                   const SizedBox(height: 20),
 
                   // ---------------------------------------------------------------
@@ -346,18 +462,28 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                   // ---------------------------------------------------------------
                   if (_modality == 'presentiel') ...[
                     const Text(
-                      'Structure de santé (Lieu)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
+                      'Health facility (Location)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: _kNavy,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int?>(
                       initialValue: _facilityId,
                       isExpanded: true,
-                      decoration: _inputDeco('Lieu de consultation (optionnel)', Icons.location_on_outlined),
+                      decoration: _inputDeco(
+                        'Consultation location (optional)',
+                        Icons.location_on_outlined,
+                      ),
                       items: [
                         const DropdownMenuItem<int?>(
                           value: null,
-                          child: Text('Aucun lieu spécifique', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            'No specific location',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         ...facilities.map((f) {
                           return DropdownMenuItem<int?>(
@@ -374,231 +500,298 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                     const SizedBox(height: 20),
                   ],
 
-              // ---------------------------------------------------------------
-              // LIEN VISIO (si téléconsultation)
-              // ---------------------------------------------------------------
-              if (_modality == 'teleconsultation') ...[
-                const Text(
-                  'Lien de la visioconférence',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _videoUrlCtrl,
-                  decoration: _inputDeco('https://meet.jit.si/... ou Zoom', Icons.link_rounded),
-                  keyboardType: TextInputType.url,
-                ),
-                const SizedBox(height: 20),
-              ],
+                  // ---------------------------------------------------------------
+                  // LIEN VISIO (si téléconsultation)
+                  // ---------------------------------------------------------------
+                  if (_modality == 'teleconsultation') ...[
+                    const Text(
+                      'Video conference link',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: _kNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _videoUrlCtrl,
+                      decoration: _inputDeco(
+                        'https://meet.jit.si/... or Zoom',
+                        Icons.link_rounded,
+                      ),
+                      keyboardType: TextInputType.url,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
-              // ---------------------------------------------------------------
-              // DATE & HEURE
-              // ---------------------------------------------------------------
-              const Text(
-                'Date & Heure',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: _pickDate,
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
+                  // ---------------------------------------------------------------
+                  // DATE & HEURE
+                  // ---------------------------------------------------------------
+                  const Text(
+                    'Date & Time',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _kNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: _pickDate,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today_rounded, size: 20, color: _kGreen),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}',
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: _kNavy),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 16,
                             ),
-                          ],
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 20,
+                                  color: _kGreen,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: _kNavy,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InkWell(
+                          onTap: _pickTime,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.access_time_rounded,
+                                  size: 20,
+                                  color: _kGreen,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: _kNavy,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ---------------------------------------------------------------
+                  // DURÉE
+                  // ---------------------------------------------------------------
+                  const Text(
+                    'Planned duration',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _kNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    children: [15, 30, 45, 60].map((dur) {
+                      final isSelected = _durationMinutes == dur;
+                      return ChoiceChip(
+                        label: Text('$dur min'),
+                        selected: isSelected,
+                        selectedColor: _kGreen.withValues(alpha: 0.15),
+                        labelStyle: TextStyle(
+                          color: isSelected ? _kGreen : Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        onSelected: (val) {
+                          if (val) setState(() => _durationMinutes = dur);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ---------------------------------------------------------------
+                  // MOTIF DU RENDEZ-VOUS
+                  // ---------------------------------------------------------------
+                  const Text(
+                    'Appointment reason',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _kNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _reasonCtrl,
+                    decoration: _inputDeco(
+                      'E.g.: Follow-up consultation, Annual checkup...',
+                      Icons.edit_note_rounded,
+                    ),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Please enter the appointment reason';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ---------------------------------------------------------------
+                  // STATUT (uniquement en édition)
+                  // ---------------------------------------------------------------
+                  if (_isEdit && widget.user.isMedecin) ...[
+                    const Text(
+                      'Status',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: _kNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<AppointmentStatus>(
+                      initialValue: _status,
+                      decoration: _inputDeco(
+                        'Current status',
+                        Icons.flag_outlined,
+                      ),
+                      items: AppointmentStatus.values.map((s) {
+                        return DropdownMenuItem<AppointmentStatus>(
+                          value: s,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: s.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(s.labelFr),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _status = val);
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // ---------------------------------------------------------------
+                  // NOTES COMPLÉMENTAIRES
+                  // ---------------------------------------------------------------
+                  const Text(
+                    'Notes & Instructions (optional)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _kNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _notesCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText:
+                          'E.g.: Fasting required, bring blood test results...',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: _kGreen, width: 2),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      onTap: _pickTime,
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.access_time_rounded, size: 20, color: _kGreen),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: _kNavy),
-                            ),
-                          ],
+                  const SizedBox(height: 32),
+
+                  // ---------------------------------------------------------------
+                  // BOUTON ENREGISTRER
+                  // ---------------------------------------------------------------
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _kGreen,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
+                      onPressed: _isSaving ? null : _save,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              _isEdit
+                                  ? 'Update appointment'
+                                  : 'Save appointment',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
-              const SizedBox(height: 20),
-
-              // ---------------------------------------------------------------
-              // DURÉE
-              // ---------------------------------------------------------------
-              const Text(
-                'Durée prévue',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                children: [15, 30, 45, 60].map((dur) {
-                  final isSelected = _durationMinutes == dur;
-                  return ChoiceChip(
-                    label: Text('$dur min'),
-                    selected: isSelected,
-                    selectedColor: _kGreen.withValues(alpha: 0.15),
-                    labelStyle: TextStyle(
-                      color: isSelected ? _kGreen : Colors.grey.shade700,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    onSelected: (val) {
-                      if (val) setState(() => _durationMinutes = dur);
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
-
-              // ---------------------------------------------------------------
-              // MOTIF DU RENDEZ-VOUS
-              // ---------------------------------------------------------------
-              const Text(
-                'Motif du rendez-vous',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _reasonCtrl,
-                decoration: _inputDeco('Ex : Consultation de suivi, Bilan annuel...', Icons.edit_note_rounded),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Veuillez renseigner le motif du rendez-vous';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // ---------------------------------------------------------------
-              // STATUT (uniquement en édition)
-              // ---------------------------------------------------------------
-              if (_isEdit) ...[
-                const Text(
-                  'Statut',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<AppointmentStatus>(
-                  initialValue: _status,
-                  decoration: _inputDeco('Statut actuel', Icons.flag_outlined),
-                  items: AppointmentStatus.values.map((s) {
-                    return DropdownMenuItem<AppointmentStatus>(
-                      value: s,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(color: s.color, shape: BoxShape.circle),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(s.labelFr),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _status = val);
-                  },
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // ---------------------------------------------------------------
-              // NOTES COMPLÉMENTAIRES
-              // ---------------------------------------------------------------
-              const Text(
-                'Notes & Instructions (optionnel)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kNavy),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Ex : Être à jeun, apporter les analyses sanguines...',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: _kGreen, width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // ---------------------------------------------------------------
-              // BOUTON ENREGISTRER
-              // ---------------------------------------------------------------
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _kGreen,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: _isSaving ? null : _save,
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : Text(
-                          _isEdit ? 'Mettre à jour le rendez-vous' : 'Enregistrer le rendez-vous',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 }

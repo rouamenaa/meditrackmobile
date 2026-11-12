@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../models/appointment.dart';
 import '../models/appointment_status.dart';
 import '../services/routing_service.dart';
@@ -9,6 +10,8 @@ const _kNavy = Color(0xFF0A2540);
 
 class AppointmentCard extends StatefulWidget {
   final Appointment appointment;
+  final bool showPatient;
+  final bool canChangeStatus;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final ValueChanged<AppointmentStatus> onStatusChanged;
@@ -16,6 +19,8 @@ class AppointmentCard extends StatefulWidget {
   const AppointmentCard({
     super.key,
     required this.appointment,
+    this.showPatient = false,
+    this.canChangeStatus = false,
     required this.onTap,
     required this.onDelete,
     required this.onStatusChanged,
@@ -34,7 +39,6 @@ class _AppointmentCardState extends State<AppointmentCard> {
   @override
   void initState() {
     super.initState();
-    // Si c'est un RDV en présentiel avec des coordonnées GPS, on calcule l'itinéraire
     if (!appointment.isTeleconsultation &&
         appointment.facility?.latitude != null &&
         appointment.facility?.longitude != null) {
@@ -53,7 +57,6 @@ class _AppointmentCardState extends State<AppointmentCard> {
     });
 
     try {
-      // 1. Vérifier la permission de localisation
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) setState(() => _isLoadingRoute = false);
@@ -74,9 +77,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
         return;
       }
 
-      // 2. Obtenir la position actuelle du patient (avec fallback sur la dernière position connue)
       Position? position = await Geolocator.getLastKnownPosition();
-      
       try {
         position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
@@ -84,15 +85,11 @@ class _AppointmentCardState extends State<AppointmentCard> {
             timeLimit: Duration(seconds: 4),
           ),
         );
-      } catch (_) {
-        // Si getCurrentPosition prend du temps (cas typique de l'émulateur), on garde la position connue
-      }
+      } catch (_) {}
 
-      // Position de repli (centre de Tunis) si l'émulateur n'a pas encore fixé de GPS
       final userLat = position?.latitude ?? 36.8065;
       final userLng = position?.longitude ?? 10.1815;
 
-      // 3. Appel de l'API OSRM (consommation API externe REST)
       final info = await RoutingService.instance.getDrivingRoute(
         startLat: userLat,
         startLng: userLng,
@@ -131,9 +128,9 @@ class _AppointmentCardState extends State<AppointmentCard> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Supprimer le rendez-vous ?'),
+        title: const Text('Supprimer ce rendez-vous ?'),
         content: Text(
-          'Voulez-vous vraiment supprimer le rendez-vous avec ${appointment.practitioner?.fullName ?? "ce praticien"} ?',
+          'Voulez-vous vraiment supprimer le rendez-vous avec ${widget.showPatient ? appointment.patientName ?? "ce patient" : appointment.practitioner?.fullName ?? "ce praticien"} ?',
         ),
         actions: [
           TextButton(
@@ -141,7 +138,9 @@ class _AppointmentCardState extends State<AppointmentCard> {
             child: const Text('Annuler'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+            ),
             onPressed: () {
               Navigator.of(ctx).pop();
               widget.onDelete();
@@ -176,7 +175,6 @@ class _AppointmentCardState extends State<AppointmentCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ligne supérieure : Date / Heure & Statut
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -187,7 +185,9 @@ class _AppointmentCardState extends State<AppointmentCard> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      isTeleconsult ? Icons.videocam_rounded : Icons.calendar_month_rounded,
+                      isTeleconsult
+                          ? Icons.videocam_rounded
+                          : Icons.calendar_month_rounded,
                       color: _kGreen,
                       size: 24,
                     ),
@@ -209,7 +209,10 @@ class _AppointmentCardState extends State<AppointmentCard> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(6),
@@ -225,7 +228,10 @@ class _AppointmentCardState extends State<AppointmentCard> {
                             ),
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: isTeleconsult
                                     ? Colors.purple.shade50
@@ -236,7 +242,9 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                 isTeleconsult ? 'Téléconsultation' : 'Présentiel',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isTeleconsult ? Colors.purple.shade800 : Colors.blue.shade800,
+                                  color: isTeleconsult
+                                      ? Colors.purple.shade800
+                                      : Colors.blue.shade800,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -246,7 +254,6 @@ class _AppointmentCardState extends State<AppointmentCard> {
                       ],
                     ),
                   ),
-                  // Menu statut
                   PopupMenuButton<AppointmentStatus>(
                     icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
                     tooltip: 'Changer le statut',
@@ -276,8 +283,6 @@ class _AppointmentCardState extends State<AppointmentCard> {
                 ],
               ),
               const Divider(height: 20),
-
-              // Motif du rendez-vous
               Text(
                 appointment.reason,
                 style: const TextStyle(
@@ -287,15 +292,19 @@ class _AppointmentCardState extends State<AppointmentCard> {
                 ),
               ),
               const SizedBox(height: 6),
-
-              // Praticien
               Row(
                 children: [
-                  Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.person_outline,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      appointment.practitioner != null
+                      widget.showPatient
+                          ? appointment.patientName ?? 'Patient'
+                          : appointment.practitioner != null
                           ? '${appointment.practitioner!.fullName} (${appointment.practitioner!.specialty})'
                           : 'Praticien #${appointment.practitionerId}',
                       style: TextStyle(
@@ -307,13 +316,15 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   ),
                 ],
               ),
-
-              // Structure & Adresse
               if (facility != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade600),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -326,9 +337,9 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   ],
                 ),
               ],
-
-              // Lien visio si téléconsultation
-              if (isTeleconsult && appointment.videoUrl != null && appointment.videoUrl!.isNotEmpty) ...[
+              if (isTeleconsult &&
+                  appointment.videoUrl != null &&
+                  appointment.videoUrl!.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -349,10 +360,6 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   ],
                 ),
               ],
-
-              // -------------------------------------------------------------
-              // 🚗 SECTION ITINÉRAIRE & TRAJET (API OSRM / Google Maps)
-              // -------------------------------------------------------------
               if (!isTeleconsult && hasCoords) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -431,15 +438,15 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   ),
                 ),
               ],
-
               const SizedBox(height: 12),
-
-              // Ligne inférieure : Badge Statut & Bouton Supprimer
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: status.backgroundColor,
                       borderRadius: BorderRadius.circular(20),
@@ -468,7 +475,11 @@ class _AppointmentCardState extends State<AppointmentCard> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFD32F2F)),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: Color(0xFFD32F2F),
+                    ),
                     tooltip: 'Supprimer',
                     onPressed: () => _showDeleteDialog(context),
                   ),
