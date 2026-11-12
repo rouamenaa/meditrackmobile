@@ -422,10 +422,10 @@ void main() {
 
       expect(recs.isNotEmpty, isTrue);
       final primary = recs.first;
-      expect(primary.category, 'Reprise en douceur');
-      expect(primary.activityType, 'Marche');
+      expect(primary.category, 'Gentle Restart');
+      expect(primary.activityType, 'Walking');
       expect(primary.durationMinutes, 25);
-      expect(primary.intensity, 'Faible');
+      expect(primary.intensity, 'Low');
     });
 
     test('Patient en progression (60 à 149 min) reçoit une recommandation Objectif OMS 150 min', () {
@@ -465,10 +465,10 @@ void main() {
       );
 
       final primary = recs.first;
-      expect(primary.category, 'Progression OMS');
+      expect(primary.category, 'WHO Progression');
       // 150 - 90 = 60 min restantes, clampé à 45 max par séance
       expect(primary.durationMinutes, 45);
-      expect(primary.intensity, 'Modérée');
+      expect(primary.intensity, 'Moderate');
     });
 
     test('Patient actif (>= 150 min) reçoit une recommandation de maintien et consolidation', () {
@@ -499,8 +499,8 @@ void main() {
       );
 
       final primary = recs.first;
-      expect(primary.category, contains('Objectif OMS Atteint'));
-      expect(primary.activityType, 'Course'); // Identifie le sport favori
+      expect(primary.category, contains('WHO Goal Achieved'));
+      expect(primary.activityType, 'Running'); // Identifie le sport favori
     });
 
     test('Patient avec condition médicale : intensité plafonnée et avis médical obligatoire', () {
@@ -529,9 +529,9 @@ void main() {
       for (final rec in recs) {
         expect(rec.medicalAdvice, isNotNull);
         expect(rec.medicalAdvice, contains('Hypertension artérielle'));
-        expect(rec.medicalAdvice, contains('médecin traitant'));
-        // L'intensité ne doit pas être 'Élevée' pour un patient avec condition médicale déclarée
-        expect(rec.intensity != 'Élevée', isTrue);
+        expect(rec.medicalAdvice, contains('attending physician'));
+        // L'intensité ne doit pas être 'High' pour un patient avec condition médicale déclarée
+        expect(rec.intensity != 'High', isTrue);
       }
     });
 
@@ -558,15 +558,15 @@ void main() {
 
       final primary = recs.first;
       expect(primary.medicalAdvice, isNotNull);
-      expect(primary.medicalAdvice, contains('senior'));
-      // Doit proposer une activité sans à-coups (Marche ou Vélo)
-      expect(['Marche', 'Vélo', 'Natation'].contains(primary.activityType), isTrue);
+      expect(primary.medicalAdvice!.toLowerCase(), contains('senior'));
+      // Doit proposer une activité sans à-coups (Walking ou Cycling)
+      expect(['Walking', 'Cycling', 'Swimming'].contains(primary.activityType), isTrue);
     });
 
     test('fetchExternalHealthTips() retourne des conseils médicaux valides même hors-ligne', () async {
       final tips = await service.fetchExternalHealthTips();
       expect(tips.isNotEmpty, isTrue);
-      expect(tips.any((t) => t.contains('OMS')), isTrue);
+      expect(tips.any((t) => t.contains('WHO')), isTrue);
     });
   });
 
@@ -705,7 +705,7 @@ void main() {
 
       expect(motivation.quote, 'It does not matter how slowly you go as long as you do not stop.');
       expect(motivation.author, 'Confucius');
-      expect(motivation.category, 'Motivation quotidienne');
+      expect(motivation.category, 'Daily motivation');
       expect(motivation.isFromApi, isTrue);
     });
 

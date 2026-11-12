@@ -22,16 +22,16 @@ enum MedicationForm {
   autre,
 }
 
-/// Labels affichés en français
+/// English display labels
 const Map<MedicationForm, String> medicationFormLabels = {
-  MedicationForm.comprime: 'Comprimé',
-  MedicationForm.gelule: 'Gélule',
-  MedicationForm.sirop: 'Sirop',
+  MedicationForm.comprime: 'Tablet',
+  MedicationForm.gelule: 'Capsule',
+  MedicationForm.sirop: 'Syrup',
   MedicationForm.injection: 'Injection',
-  MedicationForm.pommade: 'Pommade',
+  MedicationForm.pommade: 'Ointment',
   MedicationForm.patch: 'Patch',
-  MedicationForm.gouttes: 'Gouttes',
-  MedicationForm.autre: 'Autre',
+  MedicationForm.gouttes: 'Drops',
+  MedicationForm.autre: 'Other',
 };
 
 MedicationForm medicationFormFromString(String s) =>

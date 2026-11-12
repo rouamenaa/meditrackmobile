@@ -56,15 +56,15 @@ class DrugSearchService {
               '$_base/drugs.json?name=${Uri.encodeComponent(q)}'))
           .timeout(_timeout);
     } on SocketException {
-      throw DrugSearchException('Pas de connexion internet.');
+      throw DrugSearchException('No internet connection.');
     } on TimeoutException {
-      throw DrugSearchException('Le serveur ne répond pas.');
+      throw DrugSearchException('Server is not responding.');
     } on Exception catch (e) {
-      throw DrugSearchException('Erreur réseau : $e');
+      throw DrugSearchException('Network error: $e');
     }
 
     if (resp.statusCode != 200) {
-      throw DrugSearchException('Erreur serveur (${resp.statusCode}).');
+      throw DrugSearchException('Server error (${resp.statusCode}).');
     }
 
     final json = jsonDecode(resp.body);

@@ -43,18 +43,18 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Impossible de charger la citation pour le moment.';
+        _errorMessage = 'Unable to load quote right now.';
         _isLoading = false;
       });
     }
   }
 
   void _copyToClipboard(DailyMotivation motivation) {
-    final text = '« ${motivation.quote} » — ${motivation.author} (via MediTrack)';
+    final text = '"${motivation.quote}" — ${motivation.author} (via MediTrack)';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Citation copiée dans le presse-papiers'),
+        content: Text('Quote copied to clipboard'),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
         backgroundColor: Color(0xFF0B6B5D),
@@ -122,7 +122,7 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Conseil & Motivation du Jour',
+                          'Daily Health & Motivation',
                           style: TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.bold,
@@ -145,7 +145,7 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
                             ),
                             const SizedBox(width: 5),
                             Text(
-                              _motivation?.category ?? 'Bien-être & Persévérance',
+                              _motivation?.category ?? 'Wellness & Perseverance',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
@@ -161,7 +161,7 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
                     IconButton(
                       icon: const Icon(Icons.content_copy_rounded, size: 18),
                       color: Colors.grey.shade600,
-                      tooltip: 'Copier la citation',
+                      tooltip: 'Copy quote',
                       visualDensity: VisualDensity.compact,
                       onPressed: () => _copyToClipboard(_motivation!),
                     ),
@@ -178,7 +178,7 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
                           )
                         : const Icon(Icons.refresh_rounded, size: 20),
                     color: kTeal,
-                    tooltip: 'Nouvelle inspiration',
+                    tooltip: 'New inspiration',
                     visualDensity: VisualDensity.compact,
                     onPressed: _isLoading
                         ? null
@@ -219,7 +219,7 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
                       ),
                       TextButton(
                         onPressed: () => _fetchMotivation(forceRefresh: true),
-                        child: const Text('Réessayer', style: TextStyle(color: kTeal)),
+                        child: const Text('Retry', style: TextStyle(color: kTeal)),
                       ),
                     ],
                   ),
@@ -262,7 +262,7 @@ class _DailyMotivationCardState extends State<DailyMotivationCard> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _motivation!.isFromApi ? 'ZenQuotes API' : 'Sport-Santé',
+                            _motivation!.isFromApi ? 'ZenQuotes API' : 'Health & Fitness',
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,

@@ -79,7 +79,7 @@ class _ActivityRecommendationsScreenState
           initialType: rec.activityType,
           initialDuration: rec.durationMinutes,
           initialIntensity: rec.intensity,
-          initialNotes: 'Séance basée sur la recommandation : "${rec.title}"',
+          initialNotes: 'Session based on recommendation: "${rec.title}"',
         ),
       ),
     );
@@ -88,7 +88,7 @@ class _ActivityRecommendationsScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Séance "${rec.title}" enregistrée avec succès !'),
+          content: Text('Session "${rec.title}" saved successfully!'),
           backgroundColor: const Color(0xFF00685D),
           behavior: SnackBarBehavior.floating,
         ),
@@ -108,7 +108,7 @@ class _ActivityRecommendationsScreenState
       backgroundColor: kSurface,
       appBar: AppBar(
         title: const Text(
-          'Recommandations sportives',
+          'Workout Recommendations',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -117,7 +117,7 @@ class _ActivityRecommendationsScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: kPrimary),
-            tooltip: 'Actualiser les recommandations',
+            tooltip: 'Refresh recommendations',
             onPressed: _loadData,
           ),
         ],
@@ -147,7 +147,7 @@ class _ActivityRecommendationsScreenState
                           color: kPrimary, size: 20),
                       const SizedBox(width: 8),
                       const Text(
-                        'Activités conseillées pour vous',
+                        'Recommended activities for you',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -186,8 +186,8 @@ class _ActivityRecommendationsScreenState
     const kTextPrimary = Color(0xFF1D3557);
 
     final user = _currentUser;
-    final ageLabel = user?.age != null ? '${user!.age} ans' : 'Non renseigné';
-    final genderLabel = user?.sexe ?? 'Non renseigné';
+    final ageLabel = user?.age != null ? '${user!.age} yrs' : 'Not specified';
+    final genderLabel = user?.sexe ?? 'Not specified';
     final condition = user?.conditionMedicale;
     final hasCondition = condition != null && condition.trim().isNotEmpty;
 
@@ -233,7 +233,7 @@ class _ActivityRecommendationsScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user != null ? '${user.prenom} ${user.nom}' : 'Patient MediTrack',
+                      user != null ? '${user.prenom} ${user.nom}' : 'MediTrack Patient',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -242,7 +242,7 @@ class _ActivityRecommendationsScreenState
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Profil santé analysé en temps réel',
+                      'Real-time analyzed health profile',
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ],
@@ -255,7 +255,7 @@ class _ActivityRecommendationsScreenState
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${_history.length} séances au total',
+                  '${_history.length} total workouts',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -273,14 +273,14 @@ class _ActivityRecommendationsScreenState
           // Attributs réels du patient (sans données inventées)
           Row(
             children: [
-              _buildProfilePill(Icons.cake_outlined, 'Âge', ageLabel),
+              _buildProfilePill(Icons.cake_outlined, 'Age', ageLabel),
               const SizedBox(width: 8),
-              _buildProfilePill(Icons.transgender_rounded, 'Sexe', genderLabel),
+              _buildProfilePill(Icons.transgender_rounded, 'Sex', genderLabel),
               const SizedBox(width: 8),
               _buildProfilePill(
                 Icons.medical_information_outlined,
                 'Condition',
-                hasCondition ? condition : 'Aucune',
+                hasCondition ? condition : 'None',
                 isHighlight: hasCondition,
               ),
             ],
@@ -293,7 +293,7 @@ class _ActivityRecommendationsScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Volume hebdomadaire actuel :',
+                'Current weekly volume:',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -392,7 +392,7 @@ class _ActivityRecommendationsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Encadrement médical & Sécurité',
+                  'Medical Guidance & Safety',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -401,7 +401,7 @@ class _ActivityRecommendationsScreenState
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Ces suggestions sont basées sur les recommandations d\'activité de l\'OMS. Elles ne constituent en aucun cas une prescription médicale. Si vous avez une pathologie ou un traitement en cours, demandez toujours validation à votre médecin.',
+                  'These suggestions are based on WHO physical activity guidelines. They do not constitute a medical prescription. If you have an underlying medical condition or ongoing treatment, always consult your physician.',
                   style: TextStyle(
                     fontSize: 11.5,
                     color: Colors.blue.shade900,
@@ -470,7 +470,7 @@ class _ActivityRecommendationsScreenState
                     ),
                   ),
                   child: Text(
-                    'Intensité ${rec.intensity}',
+                    '${rec.intensityLabel} Intensity',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -510,7 +510,7 @@ class _ActivityRecommendationsScreenState
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Discipline : ${rec.activityType}',
+                        'Activity: ${rec.typeLabel}',
                         style: TextStyle(
                           fontSize: 12.5,
                           color: Colors.grey.shade600,
@@ -531,12 +531,12 @@ class _ActivityRecommendationsScreenState
               children: [
                 _buildMetricChip(
                   icon: Icons.timer_outlined,
-                  text: '${rec.durationMinutes} min conseillées',
+                  text: '${rec.durationMinutes} min recommended',
                   color: kPrimary,
                 ),
                 _buildMetricChip(
                   icon: Icons.repeat_rounded,
-                  text: '${rec.frequencyPerWeek}x / semaine',
+                  text: '${rec.frequencyPerWeek}x / week',
                   color: const Color(0xFF0058BD),
                 ),
                 _buildMetricChip(
@@ -636,7 +636,7 @@ class _ActivityRecommendationsScreenState
                 onPressed: () => _startRecommendation(rec),
                 icon: const Icon(Icons.play_arrow_rounded, size: 20),
                 label: const Text(
-                  'Commencer cette activité',
+                  'Start this activity',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -704,7 +704,7 @@ class _ActivityRecommendationsScreenState
                   color: Colors.amber, size: 20),
               SizedBox(width: 8),
               Text(
-                'Conseils santé & Bonnes pratiques',
+                'Health Tips & Best Practices',
                 style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.bold,

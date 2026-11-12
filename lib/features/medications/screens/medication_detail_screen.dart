@@ -70,13 +70,13 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (!ok) {
-      _snack('Stock déjà à 0 ou non suivi');
+      _snack('Stock already at 0 or not tracked');
     } else {
       widget.onChanged();
       await _refresh();
       if (_med.isLowStock) {
         _snack(
-            '⚠️ Stock bas : ${_med.stockQuantity} unité(s) restante(s)');
+            '⚠️ Low stock: ${_med.stockQuantity} unit(s) remaining');
       }
     }
   }
@@ -88,7 +88,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     setState(() => _loading = false);
     widget.onChanged();
     await _refresh();
-    _snack('✅ +$amount unité(s) ajoutée(s)');
+    _snack('✅ +$amount unit(s) added');
   }
 
   Future<void> _openForm() async {
@@ -106,21 +106,21 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer le médicament'),
+        title: const Text('Delete medication'),
         content: Text(
-            'Voulez-vous vraiment supprimer "${_med.name}" ? Cette action est irréversible.'),
+            'Do you really want to delete "${_med.name}"? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child:
-                const Text('Annuler', style: TextStyle(color: _kMuted)),
+                const Text('Cancel', style: TextStyle(color: _kMuted)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white),
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -159,12 +159,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Modifier',
+            tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
             onPressed: _openForm,
           ),
           IconButton(
-            tooltip: 'Supprimer',
+            tooltip: 'Delete',
             icon: const Icon(Icons.delete_outline,
                 color: Color(0xFFDC2626)),
             onPressed: _delete,
@@ -188,7 +188,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 bg: _kRedSoft,
                 color: const Color(0xFFDC2626),
                 message:
-                    'Ce médicament est expiré depuis le ${_fmtDate(_med.expiryDate!)}.',
+                    'This medication expired on ${_fmtDate(_med.expiryDate!)}.',
               ),
               const SizedBox(height: 12),
             ] else if (isExpiringSoon) ...[
@@ -197,7 +197,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 bg: _kOrangeSoft,
                 color: const Color(0xFFD97706),
                 message:
-                    'Expire le ${_fmtDate(_med.expiryDate!)} (dans moins de 30 jours).',
+                    'Expires on ${_fmtDate(_med.expiryDate!)} (in less than 30 days).',
               ),
               const SizedBox(height: 12),
             ],
@@ -207,26 +207,26 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 bg: _kOrangeSoft,
                 color: const Color(0xFFD97706),
                 message:
-                    'Stock bas : ${_med.stockQuantity} unité(s) restante(s).',
+                    'Low stock: ${_med.stockQuantity} unit(s) remaining.',
               ),
               const SizedBox(height: 12),
             ],
 
             // ---- Détails ----
             _sectionCard(
-              title: 'Informations',
+              title: 'Information',
               icon: Icons.info_outline,
               children: [
-                _infoRow('Nom', _med.name),
+                _infoRow('Name', _med.name),
                 if (_med.dosage != null && _med.dosage!.isNotEmpty)
                   _infoRow('Dosage', _med.dosage!),
                 _infoRow(
-                    'Forme',
+                    'Form',
                     medicationFormLabels[_med.form] ??
                         _med.form.name),
                 if (_med.manufacturer != null &&
                     _med.manufacturer!.isNotEmpty)
-                  _infoRow('Fabricant', _med.manufacturer!),
+                  _infoRow('Manufacturer', _med.manufacturer!),
                 if (_med.expiryDate != null)
                   _infoRow('Expiration', _fmtDate(_med.expiryDate!),
                       valueColor: hasExpired
@@ -250,7 +250,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
 
             // ---- Date d'ajout ----
             _sectionCard(
-              title: 'Ajouté le',
+              title: 'Added on',
               icon: Icons.calendar_today_outlined,
               children: [
                 _infoRow('Date', _fmtDate(_med.createdAt.substring(0, 10))),
@@ -314,17 +314,17 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                   spacing: 6,
                   children: [
                     if (hasExpired)
-                      _badge('Expiré', _kRedSoft,
+                      _badge('Expired', _kRedSoft,
                           const Color(0xFFDC2626))
                     else if (isExpiringSoon)
-                      _badge('Expire bientôt', _kOrangeSoft,
+                      _badge('Expiring soon', _kOrangeSoft,
                           const Color(0xFFD97706)),
                     if (hasLowStock)
-                      _badge('Stock bas', _kOrangeSoft,
+                      _badge('Low stock', _kOrangeSoft,
                           const Color(0xFFD97706))
                     else if (_med.stockQuantity != null)
                       _badge(
-                          '${_med.stockQuantity} en stock',
+                          '${_med.stockQuantity} in stock',
                           _kGreenSoft,
                           _kGreen),
                   ],
@@ -428,7 +428,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               const Icon(Icons.inventory_2_outlined,
                   color: _kPrimary, size: 18),
               const SizedBox(width: 8),
-              const Text('Gestion du stock',
+              const Text('Stock Management',
                   style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -436,7 +436,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               const Spacer(),
               if (_med.stockAlertThreshold != null)
                 Text(
-                  'Alerte : ≤ ${_med.stockAlertThreshold}',
+                  'Alert: ≤ ${_med.stockAlertThreshold}',
                   style: const TextStyle(
                       color: _kMuted, fontSize: 12),
                 ),
@@ -452,7 +452,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 color: const Color(0xFFDC2626),
                 bg: _kRedSoft,
                 onTap: _loading ? null : _decrementStock,
-                tooltip: 'Prendre 1',
+                tooltip: 'Take 1',
               ),
               const SizedBox(width: 24),
               // Valeur
@@ -468,7 +468,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                           : _kPrimary,
                     ),
                   ),
-                  const Text('unités',
+                  const Text('units',
                       style:
                           TextStyle(color: _kMuted, fontSize: 13)),
                 ],
@@ -480,7 +480,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 color: _kPrimary,
                 bg: _kTealSoft,
                 onTap: _loading ? null : () => _showAddStockDialog(),
-                tooltip: 'Ajouter du stock',
+                tooltip: 'Add stock',
               ),
             ],
           ),
@@ -553,20 +553,20 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ajouter du stock'),
+        title: const Text('Add stock'),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Quantité à ajouter',
+            labelText: 'Quantity to add',
             prefixIcon: Icon(Icons.add),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler',
+            child: const Text('Cancel',
                 style: TextStyle(color: _kMuted)),
           ),
           ElevatedButton(
@@ -577,7 +577,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: _kPrimary,
                 foregroundColor: Colors.white),
-            child: const Text('Confirmer'),
+            child: const Text('Confirm'),
           ),
         ],
       ),

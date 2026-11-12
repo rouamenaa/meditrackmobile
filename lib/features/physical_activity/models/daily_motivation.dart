@@ -11,7 +11,7 @@ class DailyMotivation {
   const DailyMotivation({
     required this.quote,
     required this.author,
-    this.category = 'Bien-être & Motivation',
+    this.category = 'Wellness & Motivation',
     this.date,
     this.isFromApi = false,
   });
@@ -25,9 +25,9 @@ class DailyMotivation {
     return DailyMotivation(
       quote: (rawQuote != null && rawQuote.isNotEmpty)
           ? rawQuote
-          : 'Chaque pas compte pour votre santé et votre bien-être.',
+          : 'Every step counts towards your health and well-being.',
       author: (rawAuthor != null && rawAuthor.isNotEmpty) ? rawAuthor : 'ZenQuotes',
-      category: 'Motivation quotidienne',
+      category: 'Daily motivation',
       date: date ?? DateTime.now(),
       isFromApi: true,
     );
@@ -48,8 +48,8 @@ class DailyMotivation {
   factory DailyMotivation.fromMap(Map<String, dynamic> map) {
     return DailyMotivation(
       quote: map['quote'] as String? ?? '',
-      author: map['author'] as String? ?? 'Conseil MediTrack',
-      category: map['category'] as String? ?? 'Bien-être & Motivation',
+      author: map['author'] as String? ?? 'MediTrack Tip',
+      category: map['category'] as String? ?? 'Wellness & Motivation',
       date: map['date'] != null
           ? DateTime.tryParse(map['date'] as String)
           : null,

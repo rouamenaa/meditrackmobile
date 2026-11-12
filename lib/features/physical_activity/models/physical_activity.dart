@@ -27,16 +27,60 @@ class PhysicalActivity {
   IconData get icon {
     switch (type.trim().toLowerCase()) {
       case 'marche':
+      case 'walking':
         return Icons.directions_walk_rounded;
       case 'course':
+      case 'running':
         return Icons.directions_run_rounded;
       case 'vélo':
       case 'velo':
+      case 'cycling':
         return Icons.directions_bike_rounded;
       case 'natation':
+      case 'swimming':
         return Icons.pool_rounded;
       default:
         return Icons.fitness_center_rounded;
+    }
+  }
+
+  /// English display label for activity type
+  String get typeLabel {
+    switch (type.trim().toLowerCase()) {
+      case 'marche':
+      case 'walking':
+        return 'Walking';
+      case 'course':
+      case 'running':
+        return 'Running';
+      case 'vélo':
+      case 'velo':
+      case 'cycling':
+        return 'Cycling';
+      case 'natation':
+      case 'swimming':
+        return 'Swimming';
+      default:
+        return type;
+    }
+  }
+
+  /// English display label for intensity
+  String get intensityLabel {
+    switch (intensity.trim().toLowerCase()) {
+      case 'faible':
+      case 'low':
+        return 'Low';
+      case 'élevée':
+      case 'elevee':
+      case 'high':
+        return 'High';
+      case 'modérée':
+      case 'moderee':
+      case 'moderate':
+        return 'Moderate';
+      default:
+        return intensity;
     }
   }
 
@@ -44,12 +88,15 @@ class PhysicalActivity {
   Color get intensityColor {
     switch (intensity.trim().toLowerCase()) {
       case 'faible':
-        return const Color(0xFF2E7D32); // Vert
+      case 'low':
+        return const Color(0xFF2E7D32); // Green
       case 'élevée':
       case 'elevee':
-        return const Color(0xFFC62828); // Rouge
+      case 'high':
+        return const Color(0xFFC62828); // Red
       case 'modérée':
       case 'moderee':
+      case 'moderate':
       default:
         return const Color(0xFFEF6C00); // Orange
     }
@@ -90,18 +137,20 @@ class PhysicalActivity {
 
     switch (normType) {
       case 'marche':
-        if (normIntensity.contains('faible')) {
+      case 'walking':
+        if (normIntensity.contains('faible') || normIntensity.contains('low')) {
           met = 2.8;
-        } else if (normIntensity.contains('élev') || normIntensity.contains('elev')) {
+        } else if (normIntensity.contains('élev') || normIntensity.contains('elev') || normIntensity.contains('high')) {
           met = 4.8;
         } else {
           met = 3.6;
         }
         break;
       case 'course':
-        if (normIntensity.contains('faible')) {
+      case 'running':
+        if (normIntensity.contains('faible') || normIntensity.contains('low')) {
           met = 7.0;
-        } else if (normIntensity.contains('élev') || normIntensity.contains('elev')) {
+        } else if (normIntensity.contains('élev') || normIntensity.contains('elev') || normIntensity.contains('high')) {
           met = 11.5;
         } else {
           met = 9.0;
@@ -109,27 +158,29 @@ class PhysicalActivity {
         break;
       case 'vélo':
       case 'velo':
-        if (normIntensity.contains('faible')) {
+      case 'cycling':
+        if (normIntensity.contains('faible') || normIntensity.contains('low')) {
           met = 4.0;
-        } else if (normIntensity.contains('élev') || normIntensity.contains('elev')) {
+        } else if (normIntensity.contains('élev') || normIntensity.contains('elev') || normIntensity.contains('high')) {
           met = 8.5;
         } else {
           met = 6.0;
         }
         break;
       case 'natation':
-        if (normIntensity.contains('faible')) {
+      case 'swimming':
+        if (normIntensity.contains('faible') || normIntensity.contains('low')) {
           met = 5.5;
-        } else if (normIntensity.contains('élev') || normIntensity.contains('elev')) {
+        } else if (normIntensity.contains('élev') || normIntensity.contains('elev') || normIntensity.contains('high')) {
           met = 10.0;
         } else {
           met = 7.5;
         }
         break;
-      default: // Fitness / Autre
-        if (normIntensity.contains('faible')) {
+      default: // Fitness / Other
+        if (normIntensity.contains('faible') || normIntensity.contains('low')) {
           met = 3.0;
-        } else if (normIntensity.contains('élev') || normIntensity.contains('elev')) {
+        } else if (normIntensity.contains('élev') || normIntensity.contains('elev') || normIntensity.contains('high')) {
           met = 7.5;
         } else {
           met = 5.0;

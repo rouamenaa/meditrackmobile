@@ -27,23 +27,67 @@ class ActivityRecommendation {
     required this.description,
     required this.estimatedCalories,
     this.medicalAdvice,
-    this.source = 'Moteur de règles OMS MediTrack',
+    this.source = 'MediTrack WHO Rules Engine',
   });
 
   /// Icône Material adaptée au type d'activité suggéré
   IconData get icon {
     switch (activityType.trim().toLowerCase()) {
       case 'marche':
+      case 'walking':
         return Icons.directions_walk_rounded;
       case 'course':
+      case 'running':
         return Icons.directions_run_rounded;
       case 'vélo':
       case 'velo':
+      case 'cycling':
         return Icons.directions_bike_rounded;
       case 'natation':
+      case 'swimming':
         return Icons.pool_rounded;
       default:
         return Icons.fitness_center_rounded;
+    }
+  }
+
+  /// English display label for activity type
+  String get typeLabel {
+    switch (activityType.trim().toLowerCase()) {
+      case 'marche':
+      case 'walking':
+        return 'Walking';
+      case 'course':
+      case 'running':
+        return 'Running';
+      case 'vélo':
+      case 'velo':
+      case 'cycling':
+        return 'Cycling';
+      case 'natation':
+      case 'swimming':
+        return 'Swimming';
+      default:
+        return activityType;
+    }
+  }
+
+  /// English display label for intensity
+  String get intensityLabel {
+    switch (intensity.trim().toLowerCase()) {
+      case 'faible':
+      case 'low':
+        return 'Low';
+      case 'élevée':
+      case 'elevee':
+      case 'high':
+        return 'High';
+      case 'modérée':
+      case 'moderee':
+      case 'moderate':
+        return 'Moderate';
+      default:
+        return intensity;
     }
   }
 
@@ -51,12 +95,15 @@ class ActivityRecommendation {
   Color get intensityColor {
     switch (intensity.trim().toLowerCase()) {
       case 'faible':
+      case 'low':
         return const Color(0xFF2E7D32);
       case 'élevée':
       case 'elevee':
+      case 'high':
         return const Color(0xFFC62828);
       case 'modérée':
       case 'moderee':
+      case 'moderate':
       default:
         return const Color(0xFFEF6C00);
     }
@@ -82,17 +129,17 @@ class ActivityRecommendation {
   factory ActivityRecommendation.fromMap(Map<String, dynamic> map) {
     return ActivityRecommendation(
       id: map['id'] as String? ?? 'rec_default',
-      title: map['title'] as String? ?? 'Séance d\'activité physique',
-      activityType: map['activityType'] as String? ?? 'Marche',
+      title: map['title'] as String? ?? 'Physical activity session',
+      activityType: map['activityType'] as String? ?? 'Walking',
       durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 30,
-      intensity: map['intensity'] as String? ?? 'Modérée',
+      intensity: map['intensity'] as String? ?? 'Moderate',
       frequencyPerWeek: (map['frequencyPerWeek'] as num?)?.toInt() ?? 3,
-      category: map['category'] as String? ?? 'Santé générale',
-      reason: map['reason'] as String? ?? 'Recommandé pour maintenir votre bien-être physique.',
-      description: map['description'] as String? ?? 'Pratiquez à votre rythme et hydratez-vous régulièrement.',
+      category: map['category'] as String? ?? 'General Health',
+      reason: map['reason'] as String? ?? 'Recommended to maintain physical well-being.',
+      description: map['description'] as String? ?? 'Practice at your own pace and stay hydrated.',
       estimatedCalories: (map['estimatedCalories'] as num?)?.toInt() ?? 120,
       medicalAdvice: map['medicalAdvice'] as String?,
-      source: map['source'] as String? ?? 'Moteur de règles OMS MediTrack',
+      source: map['source'] as String? ?? 'WHO MediTrack Guidelines',
     );
   }
 }

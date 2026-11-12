@@ -34,9 +34,9 @@ class ActivityReminderService {
   static const NotificationDetails _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'meditrack_activities',
-      'Rappels de séances d\'activité physique',
+      'Physical Activity Reminders',
       channelDescription:
-          'Notifications automatiques envoyées 5 minutes avant chaque séance de sport planifiée',
+          'Automatic notifications sent 5 minutes before each planned workout session',
       icon: 'ic_stat_meditrack',
       importance: Importance.max,
       priority: Priority.high,
@@ -85,9 +85,9 @@ class ActivityReminderService {
       await android?.createNotificationChannel(
         const AndroidNotificationChannel(
           'meditrack_activities',
-          'Rappels de séances d\'activité physique',
+          'Physical Activity Reminders',
           description:
-              'Notifications automatiques envoyées 5 minutes avant chaque séance de sport planifiée',
+              'Automatic notifications sent 5 minutes before each planned workout session',
           importance: Importance.max,
           playSound: true,
           enableVibration: true,
@@ -170,16 +170,16 @@ class ActivityReminderService {
     await _plugin.cancel(id: notifId);
 
     final scheduledDate = tz.TZDateTime.from(reminderTime, tz.local);
-    final title = '⏰ Rappel séance : ${activity.type}';
+    final title = '⏰ Workout reminder: ${activity.typeLabel}';
     final body =
-        'Votre séance de ${activity.type.toLowerCase()} (${activity.durationMinutes} min) commence dans ${settings.leadTimeMinutes} minutes ! Préparez-vous.';
+        'Your ${activity.typeLabel.toLowerCase()} session (${activity.durationMinutes} min) starts in ${settings.leadTimeMinutes} minutes! Get ready.';
 
     final notifDetails = NotificationDetails(
       android: AndroidNotificationDetails(
         'meditrack_activities',
-        'Rappels de séances d\'activité physique',
+        'Physical Activity Reminders',
         channelDescription:
-            'Notifications automatiques envoyées 5 minutes avant chaque séance de sport planifiée',
+            'Automatic notifications sent 5 minutes before each planned workout session',
         icon: 'ic_stat_meditrack',
         importance: Importance.max,
         priority: Priority.high,
@@ -251,9 +251,9 @@ class ActivityReminderService {
     await init();
     await _plugin.show(
       id: _testNotificationId,
-      title: '⏰ Rappel séance : Marche (Test)',
+      title: '⏰ Workout reminder: Walking (Test)',
       body:
-          'Votre séance de marche (30 min) commence dans 5 minutes ! Préparez-vous.',
+          'Your walking session (30 min) starts in 5 minutes! Get ready.',
       notificationDetails: _details,
       payload: 'activity_test',
     );

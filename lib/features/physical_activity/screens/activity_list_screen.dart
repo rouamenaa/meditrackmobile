@@ -24,15 +24,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   late Future<List<PhysicalActivity>> _activitiesFuture;
   late Future<ActivityWeeklySummary> _summaryFuture;
 
-  String _selectedFilter = 'Tous';
+  String _selectedFilter = 'All';
 
   final List<String> _filters = const [
-    'Tous',
-    'Marche',
-    'Course',
-    'Vélo',
-    'Natation',
-    'Autre',
+    'All',
+    'Walking',
+    'Running',
+    'Cycling',
+    'Swimming',
+    'Other',
   ];
 
   String? get _effectiveUserId =>
@@ -63,7 +63,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       _activitiesFuture = _activityService
           .getAll(
             userId: _effectiveUserId,
-            typeFilter: _selectedFilter == 'Tous' ? null : _selectedFilter,
+            typeFilter: (_selectedFilter == 'All' || _selectedFilter == 'Tous') ? null : _selectedFilter,
           )
           .then((list) {
             // Synchronise automatiquement les rappels 5 min avant pour les séances futures
@@ -107,15 +107,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
+        title: const Text('Confirm deletion'),
         content: Text(
-          'Voulez-vous vraiment supprimer cette séance de ${activity.type.toLowerCase()} du ${activity.activityDate.day}/${activity.activityDate.month}/${activity.activityDate.year} ?',
+          'Do you really want to delete this ${activity.typeLabel.toLowerCase()} workout on ${activity.activityDate.month}/${activity.activityDate.day}/${activity.activityDate.year}?',
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -126,7 +126,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -140,7 +140,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Activité supprimée et rappel annulé'),
+            content: Text('Activity deleted and reminder cancelled'),
             backgroundColor: Color(0xFF0B6B5D),
             behavior: SnackBarBehavior.floating,
           ),
@@ -150,7 +150,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la suppression : $e'),
+            content: Text('Error deleting activity: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -168,7 +168,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text(
-          'Activité physique',
+          'Physical Activity',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -177,7 +177,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome_rounded),
-            tooltip: 'Recommandations personnalisées',
+            tooltip: 'Personalized recommendations',
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute(
@@ -189,7 +189,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
-            tooltip: 'Agenda sportif',
+            tooltip: 'Workout agenda',
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute(
@@ -201,7 +201,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.notifications_active_outlined),
-            tooltip: 'Rappels intelligents',
+            tooltip: 'Smart reminders',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -212,7 +212,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Actualiser',
+            tooltip: 'Refresh',
             onPressed: _loadData,
           ),
         ],
@@ -223,7 +223,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text(
-          'Nouvelle séance',
+          'New workout',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
@@ -311,12 +311,12 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                       children: [
                         const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
                         const SizedBox(height: 12),
-                        Text('Erreur : ${snapshot.error}', textAlign: TextAlign.center),
+                        Text('Error: ${snapshot.error}', textAlign: TextAlign.center),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _loadData,
                           style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
-                          child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
+                          child: const Text('Retry', style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -381,7 +381,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                   Icon(Icons.insights_rounded, color: kPrimaryGreen, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    'Bilan de la semaine',
+                    'Weekly summary',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -399,7 +399,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  summary.goalAchieved ? 'Objectif atteint 🎉' : '$percent% de l\'objectif',
+                  summary.goalAchieved ? 'Goal reached 🎉' : '$percent% of goal',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
@@ -428,21 +428,21 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildStatItem(
-                label: 'Temps actif',
+                label: 'Active time',
                 value: '${summary.totalMinutes} min',
-                subtext: '/ ${summary.weeklyGoalMinutes} min OMS',
+                subtext: '/ ${summary.weeklyGoalMinutes} min WHO',
               ),
               Container(height: 28, width: 1, color: Colors.grey.shade200),
               _buildStatItem(
-                label: 'Séances',
+                label: 'Workouts',
                 value: '${summary.sessionCount}',
-                subtext: summary.sessionCount > 1 ? 'séances' : 'séance',
+                subtext: summary.sessionCount > 1 ? 'workouts' : 'workout',
               ),
               Container(height: 28, width: 1, color: Colors.grey.shade200),
               _buildStatItem(
                 label: 'Calories',
                 value: '${summary.totalCalories}',
-                subtext: 'kcal brûlées',
+                subtext: 'kcal burned',
                 valueColor: Colors.deepOrange,
               ),
             ],
@@ -494,7 +494,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Recommandations personnalisées',
+                        'Personalized recommendations',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -503,7 +503,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                       ),
                       SizedBox(height: 1),
                       Text(
-                        'Activités adaptées à votre profil et votre volume OMS',
+                        'Activities tailored to your health profile and WHO goals',
                         style: TextStyle(
                           fontSize: 11.5,
                           color: kPrimaryGreen,
@@ -571,9 +571,9 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              _selectedFilter == 'Tous'
-                  ? 'Aucune activité enregistrée'
-                  : 'Aucune séance de $_selectedFilter',
+              (_selectedFilter == 'All' || _selectedFilter == 'Tous')
+                  ? 'No activities recorded'
+                  : 'No $_selectedFilter workouts',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -582,9 +582,9 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _selectedFilter == 'Tous'
-                  ? 'Suivez vos séances de marche, course, vélo ou natation pour maintenir une activité régulière.'
-                  : 'Ajoutez une première séance pour cette catégorie.',
+              (_selectedFilter == 'All' || _selectedFilter == 'Tous')
+                  ? 'Track your walking, running, cycling, or swimming sessions to maintain consistent physical activity.'
+                  : 'Add your first workout in this category.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13.5, color: Colors.grey.shade600, height: 1.4),
             ),
@@ -592,7 +592,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             ElevatedButton.icon(
               onPressed: _navigateToAdd,
               icon: const Icon(Icons.add),
-              label: const Text('Enregistrer une séance'),
+              label: const Text('Log a workout'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimaryGreen,
                 foregroundColor: Colors.white,
