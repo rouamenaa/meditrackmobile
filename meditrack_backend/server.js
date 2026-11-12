@@ -15,6 +15,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/users', require('./routes/userRoutes'));
+app.use('/appointments', require('./routes/appointmentRoutes'));
 
 const PORT = process.env.PORT || 3000;
 

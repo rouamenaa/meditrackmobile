@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/appointment.dart';
 import '../models/appointment_status.dart';
+import '../services/routing_service.dart';
 
 const _kGreen = Color(0xFF0B6B5D);
 const _kNavy = Color(0xFF0A2540);
 
-class AppointmentCard extends StatelessWidget {
+class AppointmentCard extends StatefulWidget {
   final Appointment appointment;
   final VoidCallback onTap;
   final VoidCallback onDelete;
@@ -18,6 +20,98 @@ class AppointmentCard extends StatelessWidget {
     required this.onDelete,
     required this.onStatusChanged,
   });
+
+  @override
+  State<AppointmentCard> createState() => _AppointmentCardState();
+}
+
+class _AppointmentCardState extends State<AppointmentCard> {
+  RouteInfo? _routeInfo;
+  bool _isLoadingRoute = false;
+
+  Appointment get appointment => widget.appointment;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si c'est un RDV en présentiel avec des coordonnées GPS, on calcule l'itinéraire
+    if (!appointment.isTeleconsultation &&
+        appointment.facility?.latitude != null &&
+        appointment.facility?.longitude != null) {
+      _calculateRoute();
+    }
+  }
+
+  Future<void> _calculateRoute() async {
+    final facility = appointment.facility;
+    if (facility == null || facility.latitude == null || facility.longitude == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingRoute = true;
+    });
+
+    try {
+      // 1. Vérifier la permission de localisation
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) setState(() => _isLoadingRoute = false);
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) setState(() => _isLoadingRoute = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() => _isLoadingRoute = false);
+        return;
+      }
+
+      // 2. Obtenir la position actuelle du patient (avec fallback sur la dernière position connue)
+      Position? position = await Geolocator.getLastKnownPosition();
+      
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 4),
+          ),
+        );
+      } catch (_) {
+        // Si getCurrentPosition prend du temps (cas typique de l'émulateur), on garde la position connue
+      }
+
+      // Position de repli (centre de Tunis) si l'émulateur n'a pas encore fixé de GPS
+      final userLat = position?.latitude ?? 36.8065;
+      final userLng = position?.longitude ?? 10.1815;
+
+      // 3. Appel de l'API OSRM (consommation API externe REST)
+      final info = await RoutingService.instance.getDrivingRoute(
+        startLat: userLat,
+        startLng: userLng,
+        destLat: facility.latitude!,
+        destLng: facility.longitude!,
+      );
+
+      if (mounted) {
+        setState(() {
+          _routeInfo = info;
+          _isLoadingRoute = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingRoute = false);
+      }
+    }
+  }
 
   String _formatDate(DateTime dt) {
     const months = [
@@ -50,7 +144,7 @@ class AppointmentCard extends StatelessWidget {
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD32F2F)),
             onPressed: () {
               Navigator.of(ctx).pop();
-              onDelete();
+              widget.onDelete();
             },
             child: const Text('Supprimer'),
           ),
@@ -63,6 +157,8 @@ class AppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = appointment.status;
     final isTeleconsult = appointment.isTeleconsultation;
+    final facility = appointment.facility;
+    final hasCoords = facility?.latitude != null && facility?.longitude != null;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -73,7 +169,7 @@ class AppointmentCard extends StatelessWidget {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -150,11 +246,11 @@ class AppointmentCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Menu statut & suppression
+                  // Menu statut
                   PopupMenuButton<AppointmentStatus>(
                     icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
                     tooltip: 'Changer le statut',
-                    onSelected: onStatusChanged,
+                    onSelected: widget.onStatusChanged,
                     itemBuilder: (ctx) => [
                       ...AppointmentStatus.values.map(
                         (s) => PopupMenuItem(
@@ -212,8 +308,8 @@ class AppointmentCard extends StatelessWidget {
                 ],
               ),
 
-              // Lieu / Structure ou lien visio
-              if (appointment.facility != null) ...[
+              // Structure & Adresse
+              if (facility != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -221,11 +317,8 @@ class AppointmentCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '${appointment.facility!.name} • ${appointment.facility!.address}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
+                        '${facility.name} • ${facility.address}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -234,6 +327,7 @@ class AppointmentCard extends StatelessWidget {
                 ),
               ],
 
+              // Lien visio si téléconsultation
               if (isTeleconsult && appointment.videoUrl != null && appointment.videoUrl!.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Row(
@@ -253,6 +347,88 @@ class AppointmentCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ],
+
+              // -------------------------------------------------------------
+              // 🚗 SECTION ITINÉRAIRE & TRAJET (API OSRM / Google Maps)
+              // -------------------------------------------------------------
+              if (!isTeleconsult && hasCoords) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F8F6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _kGreen.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _kGreen.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.directions_car_rounded, size: 18, color: _kGreen),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _isLoadingRoute
+                            ? Row(
+                                children: const [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: _kGreen),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Calcul de l\'itinéraire...',
+                                    style: TextStyle(fontSize: 12, color: _kGreen),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _routeInfo != null
+                                        ? 'À ${_routeInfo!.formattedDistance} (~${_routeInfo!.formattedDuration})'
+                                        : 'Itinéraire disponible',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: _kNavy,
+                                    ),
+                                  ),
+                                  Text(
+                                    facility?.name ?? 'Lieu de consultation',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: _kGreen,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.navigation_outlined, size: 16),
+                        label: const Text('Y aller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        onPressed: () {
+                          RoutingService.instance.openMapNavigation(
+                            destLat: facility!.latitude!,
+                            destLng: facility.longitude!,
+                            destinationLabel: facility.name,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ],
 

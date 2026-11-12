@@ -4,9 +4,11 @@ import '../models/appointment.dart';
 import '../models/appointment_status.dart';
 import '../models/health_facility.dart';
 import '../models/practitioner.dart';
+import 'appointment_api_service.dart';
 
 class AppointmentProvider extends ChangeNotifier {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final AppointmentApiService _apiService = AppointmentApiService.instance;
 
   List<Appointment> _appointments = [];
   List<Practitioner> _practitioners = [];
@@ -77,7 +79,12 @@ class AppointmentProvider extends ChangeNotifier {
 
   Future<bool> addAppointment(Appointment appointment) async {
     try {
+      // 1. Sauvegarde locale dans SQLite
       await _dbHelper.insertAppointment(appointment);
+      
+      // 2. Synchronisation en arrière-plan avec MongoDB (via Node.js)
+      _apiService.createAppointment(appointment);
+
       await loadAll();
       return true;
     } catch (e) {
