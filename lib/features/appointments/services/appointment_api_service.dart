@@ -54,8 +54,15 @@ class AppointmentApiService {
           'firstName': '#${appointment.practitionerId}',
           'specialty': 'Général',
         },
-        if (appointment.facility != null)
+        if (appointment.facility != null) ...{
           'facility': appointment.facility!.toMap(),
+          'facility_name': appointment.facility!.name,
+          'facility_address': appointment.facility!.fullAddress,
+        },
+        if (appointment.facilityName != null && appointment.facility == null)
+          'facility_name': appointment.facilityName,
+        if (appointment.facilityAddress != null && appointment.facility == null)
+          'facility_address': appointment.facilityAddress,
         'startDateTime': appointment.startDateTime.toIso8601String(),
         'durationMinutes': appointment.durationMinutes,
         'reason': appointment.reason,

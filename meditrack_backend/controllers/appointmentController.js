@@ -150,6 +150,16 @@ exports.update = async (req, res) => {
       appointment.start_date_time = d;
       appointment.startDateTime = d;
     }
+    if (req.body.facility !== undefined) {
+      appointment.facility = req.body.facility;
+      appointment.markModified('facility');
+    }
+    if (req.body.facility_name !== undefined) {
+      appointment.facility_name = req.body.facility_name;
+    }
+    if (req.body.facility_address !== undefined) {
+      appointment.facility_address = req.body.facility_address;
+    }
 
     await appointment.save();
     const result = await populated(Appointment.findById(appointment._id));

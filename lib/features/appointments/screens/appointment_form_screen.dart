@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../auth/models/user.dart';
 import '../models/appointment.dart';
 import '../models/appointment_status.dart';
+import '../models/health_facility.dart';
 import '../models/practitioner.dart';
 import '../services/appointment_provider.dart';
 
@@ -291,6 +292,26 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
         .toList();
     final facilities = provider.facilities;
 
+    if (_facilityId == null && widget.appointment != null) {
+      final a = widget.appointment!;
+      if (a.facilityId != null) {
+        _facilityId = a.facilityId;
+      } else if (a.facility?.id != null) {
+        _facilityId = a.facility!.id;
+      } else {
+        final name = a.facilityName ?? a.facility?.name;
+        if (name != null && name.isNotEmpty) {
+          final match = facilities.cast<HealthFacility?>().firstWhere(
+            (f) => f?.name.toLowerCase() == name.toLowerCase(),
+            orElse: () => null,
+          );
+          if (match != null) {
+            _facilityId = match.id;
+          }
+        }
+      }
+    }
+
     if (_practitionerId != null &&
         !practitioners.any((p) => p.id == _practitionerId)) {
       _practitionerId = null;
@@ -470,32 +491,41 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<int?>(
-                      initialValue: _facilityId,
-                      isExpanded: true,
-                      decoration: _inputDeco(
-                        'Consultation location (optional)',
-                        Icons.location_on_outlined,
-                      ),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text(
-                            'No specific location',
-                            overflow: TextOverflow.ellipsis,
+                    Builder(
+                      builder: (context) {
+                        final selectedFacilityValue =
+                            facilities.any((f) => f.id == _facilityId)
+                                ? _facilityId
+                                : null;
+                        return DropdownButtonFormField<int?>(
+                          key: ValueKey(selectedFacilityValue),
+                          initialValue: selectedFacilityValue,
+                          isExpanded: true,
+                          decoration: _inputDeco(
+                            'Consultation location (optional)',
+                            Icons.location_on_outlined,
                           ),
-                        ),
-                        ...facilities.map((f) {
-                          return DropdownMenuItem<int?>(
-                            value: f.id,
-                            child: Text(
-                              '${f.name} - ${f.type}',
-                              overflow: TextOverflow.ellipsis,
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text(
+                                'No specific location',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          );
-                        }),
-                      ],
-                      onChanged: (val) => setState(() => _facilityId = val),
+                            ...facilities.map((f) {
+                              return DropdownMenuItem<int?>(
+                                value: f.id,
+                                child: Text(
+                                  '${f.name} - ${f.type}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) => setState(() => _facilityId = val),
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
                   ],

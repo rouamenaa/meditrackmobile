@@ -161,21 +161,40 @@ class AppointmentProvider extends ChangeNotifier {
     }
     final doctor = _practitionerFromApi(Map<String, dynamic>.from(doctorData));
     final practitioner = await _dbHelper.upsertDoctorPractitioner(doctor);
-    final facilityName = data['facility_name']?.toString();
-    final facilityAddress = data['facility_address']?.toString();
-    final facility = facilityName == null || facilityName.isEmpty
-        ? null
-        : HealthFacility(
+    final facilityName = data['facility_name']?.toString() ??
+        (data['facility'] is Map ? data['facility']['name']?.toString() : null);
+    final facilityAddress = data['facility_address']?.toString() ??
+        (data['facility'] is Map ? data['facility']['address']?.toString() : null);
+
+    HealthFacility? facility;
+    if (data['facility'] is Map) {
+      facility = HealthFacility.fromMap(
+        Map<String, dynamic>.from(data['facility'] as Map),
+      );
+    } else if (facilityName != null && facilityName.isNotEmpty) {
+      // Rechercher dans _facilities locale si existant pour récupérer latitude/longitude
+      final existing = _facilities.cast<HealthFacility?>().firstWhere(
+        (f) => f?.name.toLowerCase() == facilityName.toLowerCase(),
+        orElse: () => null,
+      );
+      facility = existing ??
+          HealthFacility(
             name: facilityName,
             type: 'Medical Office',
             address: facilityAddress ?? '',
           );
+    }
 
     return Appointment(
       remoteId: data['id']?.toString(),
       practitionerId: practitioner.id!,
       doctorUserId:
           data['doctor_user_id']?.toString() ?? practitioner.remoteUserId,
+      facilityId: facility?.id ??
+          (data['facility'] is Map
+              ? (data['facility']['id'] as num?)?.toInt()
+              : null) ??
+          (data['facility_id'] as num?)?.toInt(),
       patientId: data['patient_id']?.toString(),
       patientName: data['patient_name']?.toString(),
       startDateTime: DateTime.parse(data['start_date_time'].toString())
@@ -188,8 +207,8 @@ class AppointmentProvider extends ChangeNotifier {
       status: AppointmentStatus.fromString(data['status']?.toString()),
       practitioner: practitioner,
       facility: facility,
-      facilityName: facilityName,
-      facilityAddress: facilityAddress,
+      facilityName: facilityName ?? facility?.name,
+      facilityAddress: facilityAddress ?? facility?.fullAddress,
     );
   }
 
@@ -205,8 +224,16 @@ class AppointmentProvider extends ChangeNotifier {
       // 1. Sauvegarde locale dans SQLite
       await _dbHelper.insertAppointment(appointment);
 
-      // 2. Synchronisation en arrière-plan avec MongoDB (via Node.js)
-      _apiService.createAppointment(appointment);
+      // 2. Synchronisation avec le backend MongoDB
+      final doctorId = appointment.doctorUserId ??
+          _doctorIdForPractitioner(appointment.practitionerId);
+      if (doctorId != null) {
+        await _appointmentService.createAppointment(
+          _appointmentPayload(appointment, doctorId),
+        );
+      } else {
+        await _apiService.createAppointment(appointment);
+      }
 
       await loadAll(user: user);
       return true;
@@ -257,18 +284,28 @@ class AppointmentProvider extends ChangeNotifier {
     Appointment appointment,
     String doctorId,
   ) {
-    final facility = _facilityForId(appointment.facilityId);
+    final facility =
+        appointment.facility ?? _facilityForId(appointment.facilityId);
     return {
       'doctor_user_id': doctorId,
+      'doctor': doctorId,
+      'practitioner': appointment.practitioner?.toMap() ?? {
+        'id': appointment.practitionerId,
+      },
       'start_date_time': appointment.startDateTime.toUtc().toIso8601String(),
+      'startDateTime': appointment.startDateTime.toUtc().toIso8601String(),
       'duration_minutes': appointment.durationMinutes,
+      'durationMinutes': appointment.durationMinutes,
       'reason': appointment.reason,
       'notes': appointment.notes ?? '',
       'modality': appointment.modality,
       'video_url': appointment.videoUrl,
+      'videoUrl': appointment.videoUrl,
       'facility_name': appointment.facilityName ?? facility?.name ?? '',
       'facility_address':
           appointment.facilityAddress ?? facility?.fullAddress ?? '',
+      'facility_id': appointment.facilityId ?? facility?.id,
+      'facility': facility?.toMap(),
       'status': appointment.status.name,
     };
   }
