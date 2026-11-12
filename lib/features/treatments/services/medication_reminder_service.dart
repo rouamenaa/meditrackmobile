@@ -45,10 +45,10 @@ class MedicationReminderService {
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'meditrack_doses', // channelId
-      'Rappels de dose', // channelName
-      channelDescription: 'Notification à l\'heure exacte de la prise',
+      'Dose reminders', // channelName
+      channelDescription: 'Notification at the exact dose time',
       icon: 'ic_stat_meditrack', // petite icône monochrome (barre d'état)
-      ticker: 'Rappel de dose',
+      ticker: 'Dose reminder',
       category: AndroidNotificationCategory.reminder,
       fullScreenIntent: false,
       autoCancel: true,
@@ -109,8 +109,8 @@ class MedicationReminderService {
       await android?.createNotificationChannel(
         const AndroidNotificationChannel(
           'meditrack_doses', // channelId
-          'Rappels de dose', // channelName
-          description: 'Notification à l\'heure exacte de la prise',
+          'Dose reminders', // channelName
+          description: 'Notification at the exact dose time',
           importance: Importance.max,
           playSound: true,
           enableVibration: true,
@@ -150,9 +150,9 @@ class MedicationReminderService {
         if (when.isBefore(now.add(const Duration(seconds: 5)))) continue;
 
         final zoned = tz.TZDateTime.from(when, tz.local);
-        final title = 'Prise de ${d.medicationName}';
+        final title = 'Dose of ${d.medicationName}';
         final body =
-            '${d.dose}${d.dosage != null ? ' (${d.dosage})' : ''} à '
+            '${d.dose}${d.dosage != null ? ' (${d.dosage})' : ''} at '
             '${when.hour.toString().padLeft(2, '0')}:'
             '${when.minute.toString().padLeft(2, '0')}';
         // id = id du IntakeLog -> peut être annulé un par un plus tard

@@ -20,7 +20,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'meditrack.db');
     return openDatabase(
       path,
-      version: 7,
+      version: 9,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -34,8 +34,58 @@ class DatabaseHelper {
         await _createUserCache(db);
         await _createPhysicalActivities(db);
         await _createAppointmentsModule(db);
+        // v8 : ajout des colonnes patient sur les rendez-vous existants
+        await _ensureAppointmentPatientColumns(db);
+        // v9 : lien vers les comptes médecins enregistrés dans le backend
+        await _ensureAppointmentRoleColumns(db);
       },
     );
+  }
+
+  /// Ajoute les colonnes `patient_id` / `patient_name` si elles manquent
+  /// (migration depuis une base < v8).
+  Future<void> _ensureAppointmentPatientColumns(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(appointments)');
+    final names = columns.map((c) => c['name'] as String).toSet();
+    if (!names.contains('patient_id')) {
+      await db.execute('ALTER TABLE appointments ADD COLUMN patient_id TEXT');
+    }
+    if (!names.contains('patient_name')) {
+      await db.execute('ALTER TABLE appointments ADD COLUMN patient_name TEXT');
+    }
+  }
+
+  Future<void> _ensureAppointmentRoleColumns(Database db) async {
+    final practitionerColumns =
+        await db.rawQuery('PRAGMA table_info(practitioners)');
+    final practitionerNames =
+        practitionerColumns.map((c) => c['name'] as String).toSet();
+    if (!practitionerNames.contains('remote_user_id')) {
+      await db.execute(
+        'ALTER TABLE practitioners ADD COLUMN remote_user_id TEXT',
+      );
+    }
+
+    final appointmentColumns =
+        await db.rawQuery('PRAGMA table_info(appointments)');
+    final appointmentNames =
+        appointmentColumns.map((c) => c['name'] as String).toSet();
+    if (!appointmentNames.contains('remote_id')) {
+      await db.execute('ALTER TABLE appointments ADD COLUMN remote_id TEXT');
+    }
+    if (!appointmentNames.contains('doctor_user_id')) {
+      await db.execute(
+        'ALTER TABLE appointments ADD COLUMN doctor_user_id TEXT',
+      );
+    }
+    if (!appointmentNames.contains('facility_name')) {
+      await db.execute('ALTER TABLE appointments ADD COLUMN facility_name TEXT');
+    }
+    if (!appointmentNames.contains('facility_address')) {
+      await db.execute(
+        'ALTER TABLE appointments ADD COLUMN facility_address TEXT',
+      );
+    }
   }
 
   Future<void> _createUserCache(Database db) async {
@@ -73,7 +123,8 @@ class DatabaseHelper {
         specialty TEXT NOT NULL,
         rpps_adeli TEXT,
         phone TEXT,
-        email TEXT
+        email TEXT,
+        remote_user_id TEXT UNIQUE
       )
     ''');
 
@@ -93,7 +144,13 @@ class DatabaseHelper {
       CREATE TABLE IF NOT EXISTS appointments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         practitioner_id INTEGER NOT NULL,
+        remote_id TEXT,
+        doctor_user_id TEXT,
         facility_id INTEGER,
+        facility_name TEXT,
+        facility_address TEXT,
+        patient_id TEXT,
+        patient_name TEXT,
         start_date_time TEXT NOT NULL,
         duration_minutes INTEGER NOT NULL DEFAULT 30,
         reason TEXT NOT NULL,
@@ -119,7 +176,7 @@ class DatabaseHelper {
       'last_name': 'Ben Salah',
       'first_name': 'Sami',
       'title': 'Dr',
-      'specialty': 'Médecine Générale',
+      'specialty': 'General Medicine',
       'rpps_adeli': '10003456789',
       'phone': '+216 71 234 567',
       'email': 'sami.bensalah@meditrack.tn',
@@ -128,7 +185,7 @@ class DatabaseHelper {
       'last_name': 'Mansouri',
       'first_name': 'Leila',
       'title': 'Dr',
-      'specialty': 'Cardiologie',
+      'specialty': 'Cardiology',
       'rpps_adeli': '10008765432',
       'phone': '+216 71 890 123',
       'email': 'leila.mansouri@meditrack.tn',
@@ -137,7 +194,7 @@ class DatabaseHelper {
       'last_name': 'Trabelsi',
       'first_name': 'Mohamed',
       'title': 'Pr',
-      'specialty': 'Pneumologie',
+      'specialty': 'Pulmonology',
       'rpps_adeli': '10005432198',
       'phone': '+216 71 456 789',
       'email': 'm.trabelsi@meditrack.tn',
@@ -145,26 +202,26 @@ class DatabaseHelper {
 
     // Structures de santé de démonstration
     await db.insert('health_facilities', {
-      'name': 'Cabinet Médical El Amen',
-      'type': 'cabinet',
+      'name': 'El Amen Medical Office',
+      'type': 'Medical Office',
       'address': '12 Avenue Habib Bourguiba, Tunis',
-      'building_floor': '2ème étage, Cabinet B',
+      'building_floor': '2nd floor, Office B',
       'latitude': 36.8008,
       'longitude': 10.1800,
     });
     await db.insert('health_facilities', {
-      'name': 'Polyclinique Les Jasmins',
-      'type': 'polyclinique',
+      'name': 'Les Jasmins Polyclinic',
+      'type': 'Polyclinic',
       'address': 'Centre Urbain Nord, Tunis',
-      'building_floor': 'Bâtiment B, RDC',
+      'building_floor': 'Building B, Ground floor',
       'latitude': 36.8450,
       'longitude': 10.1980,
     });
     await db.insert('health_facilities', {
-      'name': 'Hôpital Militaire Principal',
-      'type': 'hôpital',
+      'name': 'Main Military Hospital',
+      'type': 'Hospital',
       'address': 'Montfleury, Tunis',
-      'building_floor': 'Aile Sud, Consultation Externe',
+      'building_floor': 'South Wing, Outpatient Clinic',
       'latitude': 36.7860,
       'longitude': 10.1650,
     });
@@ -186,6 +243,37 @@ class DatabaseHelper {
       orderBy: 'last_name ASC, first_name ASC',
     );
     return rows.map((r) => Practitioner.fromMap(r)).toList();
+  }
+
+  Future<Practitioner> upsertDoctorPractitioner(
+    Practitioner practitioner,
+  ) async {
+    final db = await database;
+    final remoteUserId = practitioner.remoteUserId;
+    if (remoteUserId == null || remoteUserId.isEmpty) {
+      throw ArgumentError('A remote user ID is required for a doctor account');
+    }
+
+    final existing = await db.query(
+      'practitioners',
+      where: 'remote_user_id = ?',
+      whereArgs: [remoteUserId],
+      limit: 1,
+    );
+    final values = practitioner.toMap()..remove('id');
+    if (existing.isEmpty) {
+      final id = await db.insert('practitioners', values);
+      return practitioner.copyWith(id: id);
+    }
+
+    final id = existing.first['id'] as int;
+    await db.update(
+      'practitioners',
+      values,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return practitioner.copyWith(id: id);
   }
 
   Future<Practitioner?> getPractitionerById(int id) async {
@@ -291,6 +379,12 @@ class DatabaseHelper {
         a.modality AS a_modality,
         a.video_url AS a_video_url,
         a.status AS a_status,
+        a.patient_id AS a_patient_id,
+        a.patient_name AS a_patient_name,
+        a.remote_id AS a_remote_id,
+        a.doctor_user_id AS a_doctor_user_id,
+        a.facility_name AS a_facility_name,
+        a.facility_address AS a_facility_address,
         
         p.id AS p_id,
         p.last_name AS p_last_name,
@@ -300,6 +394,7 @@ class DatabaseHelper {
         p.rpps_adeli AS p_rpps_adeli,
         p.phone AS p_phone,
         p.email AS p_email,
+        p.remote_user_id AS p_remote_user_id,
         
         f.id AS f_id,
         f.name AS f_name,
@@ -324,6 +419,7 @@ class DatabaseHelper {
         rppsAdeli: r['p_rpps_adeli'] as String?,
         phone: r['p_phone'] as String?,
         email: r['p_email'] as String?,
+        remoteUserId: r['p_remote_user_id'] as String?,
       );
 
       HealthFacility? facility;
@@ -341,8 +437,14 @@ class DatabaseHelper {
 
       return Appointment(
         id: r['a_id'] as int?,
+        remoteId: r['a_remote_id'] as String?,
         practitionerId: r['a_practitioner_id'] as int,
+        doctorUserId: r['a_doctor_user_id'] as String?,
         facilityId: r['a_facility_id'] as int?,
+        facilityName: r['a_facility_name'] as String?,
+        facilityAddress: r['a_facility_address'] as String?,
+        patientId: r['a_patient_id'] as String?,
+        patientName: r['a_patient_name'] as String?,
         startDateTime: DateTime.parse(r['a_start_date_time'] as String),
         durationMinutes: (r['a_duration_minutes'] as int?) ?? 30,
         reason: (r['a_reason'] ?? '') as String,
@@ -370,6 +472,12 @@ class DatabaseHelper {
         a.modality AS a_modality,
         a.video_url AS a_video_url,
         a.status AS a_status,
+        a.patient_id AS a_patient_id,
+        a.patient_name AS a_patient_name,
+        a.remote_id AS a_remote_id,
+        a.doctor_user_id AS a_doctor_user_id,
+        a.facility_name AS a_facility_name,
+        a.facility_address AS a_facility_address,
         
         p.id AS p_id,
         p.last_name AS p_last_name,
@@ -379,6 +487,7 @@ class DatabaseHelper {
         p.rpps_adeli AS p_rpps_adeli,
         p.phone AS p_phone,
         p.email AS p_email,
+        p.remote_user_id AS p_remote_user_id,
         
         f.id AS f_id,
         f.name AS f_name,
@@ -406,6 +515,7 @@ class DatabaseHelper {
       rppsAdeli: r['p_rpps_adeli'] as String?,
       phone: r['p_phone'] as String?,
       email: r['p_email'] as String?,
+      remoteUserId: r['p_remote_user_id'] as String?,
     );
 
     HealthFacility? facility;
@@ -423,8 +533,14 @@ class DatabaseHelper {
 
     return Appointment(
       id: r['a_id'] as int?,
+      remoteId: r['a_remote_id'] as String?,
       practitionerId: r['a_practitioner_id'] as int,
+      doctorUserId: r['a_doctor_user_id'] as String?,
       facilityId: r['a_facility_id'] as int?,
+      facilityName: r['a_facility_name'] as String?,
+      facilityAddress: r['a_facility_address'] as String?,
+      patientId: r['a_patient_id'] as String?,
+      patientName: r['a_patient_name'] as String?,
       startDateTime: DateTime.parse(r['a_start_date_time'] as String),
       durationMinutes: (r['a_duration_minutes'] as int?) ?? 30,
       reason: (r['a_reason'] ?? '') as String,

@@ -103,9 +103,9 @@ class Treatment {
     final detail = moments.isEmpty ? '' : ' (${moments.join(' & ')})';
     if (moments.length == 1) {
       final m = moments.first;
-      if (m == 'Matin' || m == 'Soir') return '$n par ${m.toLowerCase()}$detail';
+      if (m == 'Morning' || m == 'Evening') return '$n per ${m.toLowerCase()}$detail';
     }
-    return '$n par jour$detail';
+    return '$n per day$detail';
   }
 
   static String? _momentOf(String time) {
@@ -113,9 +113,9 @@ class Treatment {
     if (parts.isEmpty) return null;
     final h = int.tryParse(parts.first);
     if (h == null) return null;
-    if (h < 12) return 'Matin';
-    if (h < 18) return 'Après-midi';
-    return 'Soir';
+    if (h < 12) return 'Morning';
+    if (h < 18) return 'Afternoon';
+    return 'Evening';
   }
 
   Map<String, dynamic> toMap() => {
@@ -126,8 +126,8 @@ class Treatment {
         'medication_dosage': medicationDosage,
         'dose': dose,
         'reminder_times': _encodeTimes(reminderTimes),
-        'start_date': _dateIso(startDate),
-        'end_date': endDate == null ? null : _dateIso(endDate!),
+        'start_date': dateIso(startDate),
+        'end_date': endDate == null ? null : dateIso(endDate!),
         'status': status.name,
       };
 
@@ -159,6 +159,6 @@ class Treatment {
   static DateTime _dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// "AAAA-MM-JJ" sans l'heure (colonne TEXT)
-  static String _dateIso(DateTime d) =>
+  static String dateIso(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

@@ -172,7 +172,7 @@ class ActivityService {
   /// UPDATE : Modifie une activité existante
   Future<int> update(PhysicalActivity activity) async {
     if (activity.id == null) {
-      throw ArgumentError("Impossible de mettre à jour une activité sans identifiant (id)");
+      throw ArgumentError("Cannot update an activity without an identifier (id)");
     }
     final db = await _dbHelper.database;
     final rowsAffected = await db.update(

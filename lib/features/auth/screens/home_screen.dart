@@ -7,13 +7,12 @@ import '../../appointments/screens/appointments_screen.dart';
 import '../../appointments/services/appointment_provider.dart';
 import '../../medications/screens/medications_screen.dart';
 import '../../physical_activity/screens/activity_list_screen.dart';
-import '../../physical_activity/screens/sports_agenda_screen.dart';
-import '../../physical_activity/widgets/sports_agenda_card.dart';
 import '../../treatments/models/treatment.dart';
 import '../../treatments/repositories/treatment_repository.dart';
 import '../../treatments/screens/treatments_screen.dart';
 import '../../treatments/utils/date_fr.dart';
 import '../models/user.dart';
+import 'ai_assistant_screen.dart';
 import 'profile_screen.dart';
 
 /// Palette du design system MediTrack (export Stitch « dashboard »).
@@ -97,6 +96,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _data = _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AppointmentProvider>().loadAll(user: widget.user);
+      }
+    });
   }
 
   Future<_HomeData> _load() async {
@@ -166,12 +170,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    // Sync treatments from backend first (non-blocking)
+    _repo.syncFromBackend();
     final future = _load();
     setState(() {
       _data = future;
     });
     try {
-      await context.read<AppointmentProvider>().loadAll();
+      await context
+          .read<AppointmentProvider>()
+          .loadAll(user: widget.user);
     } catch (_) {}
     await future;
   }
@@ -187,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Prise enregistrée à ${fmtTime(DateTime.now())}'),
+          content: Text('Dose taken at ${fmtTime(DateTime.now())}'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -197,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Impossible d\'enregistrer la prise'),
+          content: Text('Unable to record the dose'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -208,16 +216,24 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
-  void _goAppointments() => _open(const AppointmentsScreen());
+  void _goAppointments() => _open(AppointmentsScreen(user: widget.user));
   void _goTreatments() => _open(TreatmentsScreen(user: widget.user));
-  void _goActivity() => _open(const ActivityListScreen());
-  void _goSportsAgenda() => _open(SportsAgendaScreen(userId: widget.user.id));
-  void _goProfile() => _open(ProfileScreen(user: widget.user));
   void _goMedications() => _open(MedicationsScreen(user: widget.user));
-  void _goNewAppointment() => _open(const AppointmentFormScreen());
+  void _goActivity() => _open(const ActivityListScreen());
+  void _goProfile() => _open(ProfileScreen(user: widget.user));
+  void _goAi() => _open(const AiAssistantScreen());
+  void _goNewAppointment() => _open(AppointmentFormScreen(user: widget.user));
 
   @override
   Widget build(BuildContext context) {
+    return widget.user.isMedecin ? _buildDoctorHome() : _buildPatientHome();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Accueil patient (dashboard médicaments / traitements / rendez-vous)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildPatientHome() {
     return Scaffold(
       backgroundColor: _P.surface,
       body: SafeArea(
@@ -227,11 +243,19 @@ class _HomeScreenState extends State<HomeScreen> {
             _AppHeader(
               user: widget.user,
               onProfile: _goProfile,
+              onAi: _goAi,
             ),
             Expanded(
               child: Consumer<AppointmentProvider>(
                 builder: (context, appointments, _) {
-                  final upcoming = appointments.upcomingAppointments;
+                  final upcoming = appointments
+                      .appointmentsForPatient(widget.user)
+                      .where((a) =>
+                          a.startDateTime.isAfter(DateTime.now()) &&
+                          !a.status.name.startsWith('CANCELLED'))
+                      .toList()
+                    ..sort((a, b) =>
+                        a.startDateTime.compareTo(b.startDateTime));
                   final next = upcoming.isEmpty ? null : upcoming.first;
                   return FutureBuilder<_HomeData>(
                     future: _data,
@@ -263,11 +287,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               onNew: _goNewAppointment,
                             ),
                             const SizedBox(height: 16),
-                            SportsAgendaCard(
-                              userId: widget.user.id,
-                              onOpen: _goSportsAgenda,
-                            ),
-                            const SizedBox(height: 16),
                             if (!loading)
                               _TreatmentsCard(
                                 doses: data.today,
@@ -295,9 +314,80 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: _HomeNavBar(
         onHome: () {},
         onTreatments: _goTreatments,
+        onMedications: _goMedications,
         onAppointments: _goAppointments,
         onActivity: _goActivity,
-        onMedications: _goMedications,
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Accueil médecin (agenda du praticien)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildDoctorHome() {
+    return Scaffold(
+      backgroundColor: _P.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _AppHeader(
+              user: widget.user,
+              onProfile: _goProfile,
+              onAi: _goAi,
+              showAi: false,
+            ),
+            Expanded(
+              child: Consumer<AppointmentProvider>(
+                builder: (context, provider, _) {
+                  final mine = provider.appointmentsForDoctor(widget.user);
+                  final now = DateTime.now();
+                  final today = mine
+                      .where((a) => _sameDay(a.startDateTime, now))
+                      .toList()
+                    ..sort((a, b) =>
+                        a.startDateTime.compareTo(b.startDateTime));
+                  final upcoming = mine
+                      .where((a) =>
+                          a.startDateTime.isAfter(now) &&
+                          !a.isPast)
+                      .toList()
+                    ..sort((a, b) =>
+                        a.startDateTime.compareTo(b.startDateTime));
+
+                  return RefreshIndicator(
+                    color: _P.primary,
+                    onRefresh: () => provider.loadAll(user: widget.user),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                      children: [
+                        _Greeting(user: widget.user),
+                        const SizedBox(height: 16),
+                        _DoctorScheduleCard(
+                          today: today,
+                          onOpenAgenda: _goAppointments,
+                        ),
+                        const SizedBox(height: 16),
+                        _DoctorStatsCard(
+                          todayCount: today.length,
+                          upcomingCount: upcoming.length,
+                          totalCount: mine.length,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _DoctorNavBar(
+        onHome: () {},
+        onAgenda: _goAppointments,
+        onProfile: _goProfile,
       ),
     );
   }
@@ -370,13 +460,13 @@ String _initials(User user) {
 String _relativeDose(DateTime at) {
   final now = DateTime.now();
   final diff = at.difference(now);
-  if (diff.inMinutes <= 0) return 'maintenant';
-  if (diff.inMinutes < 60) return 'dans ${diff.inMinutes} min';
-  if (_sameDay(at, now)) return 'à ${fmtTime(at)}';
+  if (diff.inMinutes <= 0) return 'now';
+  if (diff.inMinutes < 60) return 'in ${diff.inMinutes} min';
+  if (_sameDay(at, now)) return 'at ${fmtTime(at)}';
   if (_sameDay(at, now.add(const Duration(days: 1)))) {
-    return 'demain à ${fmtTime(at)}';
+    return 'tomorrow at ${fmtTime(at)}';
   }
-  return '${fmtDateLettres(at)} à ${fmtTime(at)}';
+  return '${fmtDateLettres(at)} at ${fmtTime(at)}';
 }
 
 // ---------------------------------------------------------------------------
@@ -386,8 +476,15 @@ String _relativeDose(DateTime at) {
 class _AppHeader extends StatelessWidget {
   final User user;
   final VoidCallback onProfile;
+  final VoidCallback onAi;
+  final bool showAi;
 
-  const _AppHeader({required this.user, required this.onProfile});
+  const _AppHeader({
+    required this.user,
+    required this.onProfile,
+    required this.onAi,
+    this.showAi = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -435,16 +532,22 @@ class _AppHeader extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 2),
-              Text('Tableau de bord', style: _T.caption),
+              Text('Dashboard', style: _T.caption),
             ],
           ),
           const Spacer(),
+          if (showAi)
+            _IconButton(
+              icon: Icons.auto_awesome,
+              tooltip: 'MediTrack AI assistant',
+              onTap: onAi,
+            ),
           _IconButton(
             icon: Icons.notifications_none_rounded,
             tooltip: 'Notifications',
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Aucune nouvelle notification'),
+                content: Text('No new notifications'),
                 behavior: SnackBarBehavior.floating,
               ),
             ),
@@ -577,7 +680,7 @@ class _Greeting extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text('Bonjour $name', style: _T.h1),
+                Text('Hello $name', style: _T.h1),
               ],
             ),
           ),
@@ -632,9 +735,9 @@ class _MedicationCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PROCHAIN MÉDICAMENT', style: _T.overline),
+                      Text('NEXT MEDICATION', style: _T.overline),
                       const SizedBox(height: 2),
-                      Text('Aucune prise planifiée', style: _T.h3),
+                      Text('No scheduled dose', style: _T.h3),
                     ],
                   ),
                 ),
@@ -642,12 +745,12 @@ class _MedicationCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Ajoutez un traitement pour voir vos prochaines prises ici.',
+              'Add a treatment to see your upcoming doses here.',
               style: _T.bodySmall,
             ),
             const SizedBox(height: 12),
             _ActionButton(
-              label: 'Voir mes traitements',
+              label: 'View my treatments',
               icon: Icons.list_alt_rounded,
               onTap: onOpenTreatments,
             ),
@@ -681,7 +784,7 @@ class _MedicationCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('PROCHAIN MÉDICAMENT', style: _T.overline),
+                    Text('NEXT MEDICATION', style: _T.overline),
                     const SizedBox(height: 2),
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.end,
@@ -702,7 +805,7 @@ class _MedicationCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const _Pill(
-                label: 'Programmé',
+                label: 'Scheduled',
                 color: _P.primary,
                 background: Color(0x2600685D),
               ),
@@ -725,14 +828,14 @@ class _MedicationCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Prendre $details', style: _T.bodySmall),
+                  child: Text('Take $details', style: _T.bodySmall),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
           _ActionButton(
-            label: 'Prendre maintenant',
+            label: 'Take now',
             icon: Icons.check_circle_outline_rounded,
             onTap: next.log == null ? null : () => onTake(next.log!),
           ),
@@ -777,9 +880,9 @@ class _AppointmentCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PROCHAIN RENDEZ-VOUS', style: _T.overline),
+                      Text('NEXT APPOINTMENT', style: _T.overline),
                       const SizedBox(height: 2),
-                      Text('Aucun rendez-vous à venir', style: _T.h3),
+                      Text('No upcoming appointments', style: _T.h3),
                     ],
                   ),
                 ),
@@ -787,12 +890,12 @@ class _AppointmentCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Planifiez votre prochaine consultation en quelques étapes.',
+              'Schedule your next appointment in a few steps.',
               style: _T.bodySmall,
             ),
             const SizedBox(height: 12),
             _ActionButton(
-              label: 'Prendre rendez-vous',
+              label: 'Book an appointment',
               icon: Icons.add_rounded,
               onTap: onNew,
             ),
@@ -804,8 +907,8 @@ class _AppointmentCard extends StatelessWidget {
     final practitioner = appt.practitioner;
     final facility = appt.facility;
     final when = _sameDay(appt.startDateTime, DateTime.now())
-        ? 'aujourd\'hui à ${fmtTime(appt.startDateTime)}'
-        : '${fmtDateLettres(appt.startDateTime)} à ${fmtTime(appt.startDateTime)}';
+        ? 'today at ${fmtTime(appt.startDateTime)}'
+        : '${fmtDateLettres(appt.startDateTime)} at ${fmtTime(appt.startDateTime)}';
 
     return _Card(
       child: Column(
@@ -824,10 +927,10 @@ class _AppointmentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('PROCHAIN RENDEZ-VOUS', style: _T.overline),
+                    Text('NEXT APPOINTMENT', style: _T.overline),
                     const SizedBox(height: 2),
                     Text(
-                      practitioner?.fullName ?? 'Rendez-vous',
+                      practitioner?.fullName ?? 'Appointment',
                       style: _T.h3,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -910,7 +1013,7 @@ class _AppointmentCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _ActionButton(
-                  label: 'Détails',
+                  label: 'Details',
                   icon: Icons.list_alt_rounded,
                   height: 44,
                   fontSize: 13,
@@ -923,7 +1026,7 @@ class _AppointmentCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _ActionButton(
-                  label: 'Nouveau',
+                  label: 'New',
                   icon: Icons.add_rounded,
                   height: 44,
                   fontSize: 13,
@@ -977,11 +1080,11 @@ class _TreatmentsCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Traitements du jour', style: _T.h3),
+                    Text('Today\'s treatments', style: _T.h3),
                     Text(
                       doses.isEmpty
-                          ? 'Aucune prise prévue'
-                          : '$done sur ${doses.length} terminés',
+                          ? 'No doses scheduled'
+                          : '$done of ${doses.length} completed',
                       style: _T.caption,
                     ),
                   ],
@@ -991,7 +1094,7 @@ class _TreatmentsCard extends StatelessWidget {
                 TextButton(
                   onPressed: onOpen,
                   style: TextButton.styleFrom(foregroundColor: _P.primary),
-                  child: const Text('Tout voir'),
+                  child: const Text('View all'),
                 ),
             ],
           ),
@@ -1000,7 +1103,7 @@ class _TreatmentsCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                'Vos prises apparaîtront ici dès qu\'un traitement sera actif.',
+                'Your doses will appear here once a treatment is active.',
                 style: _T.bodySmall,
               ),
             )
@@ -1009,7 +1112,7 @@ class _TreatmentsCard extends StatelessWidget {
           if (doses.length > visible.length) ...[
             const SizedBox(height: 4),
             Text(
-              '+ ${doses.length - visible.length} autre(s) prise(s)',
+              '+ ${doses.length - visible.length} more dose(s)',
               style: _T.caption,
             ),
           ],
@@ -1030,8 +1133,8 @@ class _DoseRow extends StatelessWidget {
     final taken = dose.taken;
     final time = fmtTime(dose.log.scheduledAt);
     final subtitle = taken
-        ? 'Prise enregistrée${dose.log.takenAt != null ? ' à ${fmtTime(dose.log.takenAt!)}' : ''}'
-        : 'Prévue à $time';
+        ? 'Taken${dose.log.takenAt != null ? ' at ${fmtTime(dose.log.takenAt!)}' : ''}'
+        : 'Scheduled at $time';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1117,10 +1220,10 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
     final info = widget.info;
     final days = info.days;
     final label = days == 0
-        ? 'se termine aujourd\'hui'
+        ? 'ends today'
         : days == 1
-            ? 'se termine demain'
-            : 'se termine dans $days jours';
+            ? 'ends tomorrow'
+            : 'ends in $days days';
     final end = info.treatment.endDate;
 
     return Container(
@@ -1165,7 +1268,7 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
                         ),
                         const SizedBox(width: 4),
                         const _Pill(
-                          label: 'Bientôt',
+                          label: 'Soon',
                           color: _P.tertiaryDeep,
                           background: Color(0x40F4A261),
                         ),
@@ -1174,8 +1277,8 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
                     const SizedBox(height: 4),
                     Text(
                       end == null
-                          ? 'Traitement bientôt terminé'
-                          : 'Dernier jour le ${fmtDate(end)}',
+                          ? 'Treatment ending soon'
+                          : 'Last day on ${fmtDate(end)}',
                       style: _T.caption,
                     ),
                   ],
@@ -1188,7 +1291,7 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
             children: [
               Expanded(
                 child: _ActionButton(
-                  label: 'Voir le traitement',
+                  label: 'View treatment',
                   icon: Icons.autorenew_rounded,
                   height: 44,
                   fontSize: 13,
@@ -1200,7 +1303,7 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
               ),
               const SizedBox(width: 8),
               _ActionButton(
-                label: 'Ignorer',
+                label: 'Dismiss',
                 height: 44,
                 fontSize: 13,
                 radius: 8,
@@ -1225,16 +1328,16 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
 class _HomeNavBar extends StatelessWidget {
   final VoidCallback onHome;
   final VoidCallback onTreatments;
+  final VoidCallback onMedications;
   final VoidCallback onAppointments;
   final VoidCallback onActivity;
-  final VoidCallback onMedications;
 
   const _HomeNavBar({
     required this.onHome,
     required this.onTreatments,
+    required this.onMedications,
     required this.onAppointments,
     required this.onActivity,
-    required this.onMedications,
   });
 
   @override
@@ -1269,7 +1372,7 @@ class _HomeNavBar extends StatelessWidget {
                 onTap: onTreatments,
               ),
               _NavItem(
-                icon: Icons.medical_services_outlined,
+                icon: Icons.medication_liquid_rounded,
                 label: 'Médicaments',
                 onTap: onMedications,
               ),
@@ -1510,6 +1613,271 @@ class _LoadingCard extends StatelessWidget {
               strokeWidth: 2.5,
               color: _P.primary,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Accueil médecin — briques dédiées
+// ---------------------------------------------------------------------------
+
+class _DoctorScheduleCard extends StatelessWidget {
+  final List<Appointment> today;
+  final VoidCallback onOpenAgenda;
+
+  const _DoctorScheduleCard({
+    required this.today,
+    required this.onOpenAgenda,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _Badge(
+                icon: Icons.today_rounded,
+                color: _P.secondary,
+                background: _P.secondaryFixed,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('TODAY\'S SCHEDULE', style: _T.overline),
+                    const SizedBox(height: 2),
+                    Text(
+                      today.isEmpty
+                          ? 'No appointments today'
+                          : '${today.length} appointment(s)',
+                      style: _T.h3,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (today.isEmpty)
+            Text(
+              'Your patients\' bookings will appear here.',
+              style: _T.bodySmall,
+            )
+          else
+            ...today.take(4).map((a) => _DoctorAppointmentRow(appointment: a)),
+          const SizedBox(height: 12),
+          _ActionButton(
+            label: 'Open agenda',
+            icon: Icons.calendar_month_rounded,
+            onTap: onOpenAgenda,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DoctorAppointmentRow extends StatelessWidget {
+  final Appointment appointment;
+  const _DoctorAppointmentRow({required this.appointment});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              alignment: Alignment.center,
+              child: Text(
+                fmtTime(appointment.startDateTime),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _P.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    appointment.patientName ?? 'Patient',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _T.label,
+                  ),
+                  Text(
+                    appointment.reason.isEmpty
+                        ? 'Consultation'
+                        : appointment.reason,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _T.caption,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _Pill(
+              label: appointment.status.labelFr,
+              color: appointment.status.color,
+              background: appointment.status.backgroundColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DoctorStatsCard extends StatelessWidget {
+  final int todayCount;
+  final int upcomingCount;
+  final int totalCount;
+
+  const _DoctorStatsCard({
+    required this.todayCount,
+    required this.upcomingCount,
+    required this.totalCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _Badge(
+                icon: Icons.insights_rounded,
+                color: _P.textPrimary,
+                background: _P.surfaceContainerHigh,
+              ),
+              const SizedBox(width: 8),
+              Text('Practice statistics', style: _T.h3),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _StatBox(label: 'Today', value: '$todayCount'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatBox(label: 'Upcoming', value: '$upcomingCount'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatBox(label: 'Total', value: '$totalCount'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatBox extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatBox({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: _P.primary,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: _T.caption),
+        ],
+      ),
+    );
+  }
+}
+
+class _DoctorNavBar extends StatelessWidget {
+  final VoidCallback onHome;
+  final VoidCallback onAgenda;
+  final VoidCallback onProfile;
+
+  const _DoctorNavBar({
+    required this.onHome,
+    required this.onAgenda,
+    required this.onProfile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _P.surface.withValues(alpha: 0.95),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 12,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 80,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.home_rounded,
+                label: 'Home',
+                active: true,
+                onTap: onHome,
+              ),
+              _NavItem(
+                icon: Icons.calendar_month_rounded,
+                label: 'Agenda',
+                onTap: onAgenda,
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                label: 'Profile',
+                onTap: onProfile,
+              ),
+            ],
           ),
         ),
       ),

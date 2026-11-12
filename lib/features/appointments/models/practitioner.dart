@@ -7,6 +7,7 @@ class Practitioner {
   final String? rppsAdeli;
   final String? phone;
   final String? email;
+  final String? remoteUserId;
 
   Practitioner({
     this.id,
@@ -17,6 +18,7 @@ class Practitioner {
     this.rppsAdeli,
     this.phone,
     this.email,
+    this.remoteUserId,
   });
 
   String get fullName => '$title $firstName $lastName'.trim();
@@ -30,6 +32,7 @@ class Practitioner {
     'rpps_adeli': rppsAdeli,
     'phone': phone,
     'email': email,
+    'remote_user_id': remoteUserId,
   };
 
   factory Practitioner.fromMap(Map<String, dynamic> map) => Practitioner(
@@ -41,6 +44,7 @@ class Practitioner {
     rppsAdeli: map['rpps_adeli'] as String?,
     phone: map['phone'] as String?,
     email: map['email'] as String?,
+    remoteUserId: map['remote_user_id'] as String?,
   );
 
   Practitioner copyWith({
@@ -52,6 +56,7 @@ class Practitioner {
     String? rppsAdeli,
     String? phone,
     String? email,
+    String? remoteUserId,
   }) {
     return Practitioner(
       id: id ?? this.id,
@@ -62,6 +67,7 @@ class Practitioner {
       rppsAdeli: rppsAdeli ?? this.rppsAdeli,
       phone: phone ?? this.phone,
       email: email ?? this.email,
+      remoteUserId: remoteUserId ?? this.remoteUserId,
     );
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:meditrackmobile/features/profile/services/medical_report_service.dart';
+import '../../appointments/models/appointment.dart';
+import '../../appointments/services/appointment_provider.dart';
 import '../models/user.dart';
 import '../repositories/user_repository.dart';
 import '../services/api_service.dart';
@@ -50,12 +53,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _loading = false;
       });
     } on ApiException {
-      await _logout(); // session expirée ou compte supprimé
+      await _repo.invalidateSession();
+      await _returnToLogin();
     }
   }
 
   Future<void> _logout() async {
     await _repo.logout();
+    await _returnToLogin();
+  }
+
+  Future<void> _returnToLogin() async {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -84,7 +92,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _user = updated;
         _uploadingPhoto = false;
       });
-      _snack('Photo mise à jour');
+      _snack('Photo updated');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _uploadingPhoto = false);
@@ -102,13 +110,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Export PDF du dossier médical.
   Future<void> _exportPdf() async {
     try {
       await MedicalReportService.exportPdf(_user);
     } catch (e) {
       if (!mounted) return;
-      _snack('Export impossible : $e');
+      _snack('Export failed: $e');
     }
   }
 
@@ -127,6 +134,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final u = _user;
+    final isMedecin = u.isMedecin;
+    final doctorAppointments = isMedecin
+        ? context.watch<AppointmentProvider>().appointmentsForDoctor(u)
+        : const <Appointment>[];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -164,18 +175,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             _buildHeader(u),
             const SizedBox(height: 16),
-            _buildPersonalDetails(u),
-            const SizedBox(height: 16),
-            _buildCare(u),
+            if (isMedecin) ...[
+              _buildProfessionalInfo(u),
+              const SizedBox(height: 16),
+              _buildDoctorContact(u),
+              const SizedBox(height: 16),
+              _buildPracticeStats(doctorAppointments),
+            ] else ...[
+              _buildPersonalDetails(u),
+              const SizedBox(height: 16),
+              _buildCare(u),
+            ],
             const SizedBox(height: 20),
-            _buildButtons(),
+            _buildButtons(u),
           ],
         ),
       ),
     );
   }
 
-  // ---------------- En-tête : photo, nom, ID, groupe sanguin ----------------
   Widget _buildHeader(User u) {
     final hasPhoto = u.photoUrl != null;
     final health = [
@@ -430,8 +448,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ---------------- Professional Information (médecin) ----------------
+  Widget _buildProfessionalInfo(User u) {
+    String orNotSet(String? value) =>
+        (value == null || value.trim().isEmpty) ? 'Not set' : value.trim();
+
+    return _SectionCard(
+      title: 'Professional Information',
+      icon: Icons.medical_services_outlined,
+      iconColor: kGreen,
+      children: [
+        _InfoTile(
+          icon: Icons.local_hospital_outlined,
+          iconBg: const Color(0xFFD5E7E4),
+          iconColor: kGreen,
+          small: 'Specialty',
+          lines: [_Line(orNotSet(u.specialite), bold: true)],
+        ),
+        const SizedBox(height: 12),
+        _InfoTile(
+          icon: Icons.badge_outlined,
+          iconBg: const Color(0xFFD9E3F5),
+          iconColor: const Color(0xFF1B4FBF),
+          small: 'RPPS / ADELI Number',
+          lines: [_Line(orNotSet(u.rppsAdeli), bold: true)],
+        ),
+        const SizedBox(height: 12),
+        _InfoTile(
+          icon: Icons.apartment_outlined,
+          iconBg: const Color(0xFFE6E9FB),
+          iconColor: const Color(0xFF3B4A6B),
+          small: 'Practice / Establishment',
+          lines: [_Line(orNotSet(u.etablissement), bold: true)],
+        ),
+      ],
+    );
+  }
+
+  // ---------------- Contact & Availability (médecin) ----------------
+  Widget _buildDoctorContact(User u) {
+    final hours = (u.horairesConsultation ?? '').trim();
+    return _SectionCard(
+      title: 'Contact & Availability',
+      icon: Icons.contact_mail_outlined,
+      iconColor: const Color(0xFF1B4FBF),
+      children: [
+        _Field(
+          label: 'Email Address',
+          icon: Icons.mail_outline,
+          value: u.email,
+          trailing:
+              const Icon(Icons.check_circle_outline, color: kGreen, size: 22),
+        ),
+        _Field(
+          label: 'Phone Number',
+          icon: Icons.phone_outlined,
+          value: (u.telephone ?? '').isEmpty ? 'Not set' : u.telephone!,
+        ),
+        const Text('Consultation Hours',
+            style: TextStyle(
+                color: kNavy, fontWeight: FontWeight.w700, fontSize: 13)),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: _kFieldBg, borderRadius: BorderRadius.circular(10)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.schedule_outlined, color: kNavy, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  hours.isEmpty ? 'Not set' : hours,
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------- Practice Statistics (médecin) ----------------
+  Widget _buildPracticeStats(List<Appointment> appointments) {
+    final now = DateTime.now();
+    final today = appointments.where((a) {
+      final d = a.startDateTime;
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).length;
+    final upcoming =
+        appointments.where((a) => a.startDateTime.isAfter(now)).length;
+    final completed = appointments.where((a) => a.isPast).length;
+
+    return _SectionCard(
+      title: 'Practice Statistics',
+      icon: Icons.insights_rounded,
+      iconColor: kGreen,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _StatBox(label: 'Today', value: today)),
+            const SizedBox(width: 10),
+            Expanded(child: _StatBox(label: 'Upcoming', value: upcoming)),
+            const SizedBox(width: 10),
+            Expanded(child: _StatBox(label: 'Past', value: completed)),
+          ],
+        ),
+      ],
+    );
+  }
+
   // ---------------- Boutons ----------------
-  Widget _buildButtons() {
+  Widget _buildButtons(User u) {
     return Column(
       children: [
         SizedBox(
@@ -450,24 +581,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            onPressed: _exportPdf,
-            icon: const Icon(Icons.description_outlined, size: 18),
-            label: const Text('Medical Records & Export PDF',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDDE4FA),
-              foregroundColor: kNavy,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+        if (!u.isMedecin) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _exportPdf,
+              icon: const Icon(Icons.description_outlined, size: 18),
+              label: const Text('Medical Records & Export PDF',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDDE4FA),
+                foregroundColor: kNavy,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
             ),
           ),
-        ),
+        ],
         const SizedBox(height: 6),
         TextButton.icon(
           onPressed: _logout,
@@ -581,6 +714,41 @@ class _Line {
   final String text;
   final bool bold;
   _Line(this.text, {this.bold = false});
+}
+
+class _StatBox extends StatelessWidget {
+  final String label;
+  final int value;
+
+  const _StatBox({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+          color: _kFieldBg, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          Text(
+            '$value',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: kGreen,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700)),
+        ],
+      ),
+    );
+  }
 }
 
 class _InfoTile extends StatelessWidget {
