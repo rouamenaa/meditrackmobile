@@ -43,6 +43,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     super.initState();
     ActivityService.changeNotifier.addListener(_onActivitiesChanged);
     ActivityReminderService.instance.init();
+    _activityService.syncWithBackend();
     _loadData();
   }
 
@@ -75,6 +76,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   }
 
   Future<void> _refresh() async {
+    await _activityService.syncWithBackend();
     _loadData();
   }
 

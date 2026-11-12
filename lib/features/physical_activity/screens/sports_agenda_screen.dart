@@ -65,6 +65,7 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
   void initState() {
     super.initState();
     ActivityService.changeNotifier.addListener(_onActivitiesChanged);
+    _activityService.syncWithBackend();
     final now = DateTime.now();
     _displayedMonth = DateTime(now.year, now.month, 1);
     _selectedDay = DateTime(now.year, now.month, now.day);
