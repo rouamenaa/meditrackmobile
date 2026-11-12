@@ -11,10 +11,18 @@
 ///  - Stop : l'historique est conservé, les prises futures annulées
 ///  - Completed : attribué automatiquement quand endDate est passé
 ///  - Modifier dose/horaires régénère UNIQUEMENT les prises futures
+///
+/// Sync (Option B) : en plus du local, on pousse vers le backend
+/// /treatments (JWT). Le local reste la source de vérité offline.
 /// ============================================================
 library;
 
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+
 import 'package:meditrackmobile/database/database_helper.dart';
+import 'package:meditrackmobile/features/auth/services/api_service.dart';
+import 'package:meditrackmobile/features/auth/services/session.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/treatment.dart';
@@ -122,6 +130,130 @@ class TreatmentRepository {
     return db;
   }
 
+  /// Sync API client (lazy init)
+  ApiService? _api;
+  ApiService get _apiService => _api ??= ApiService();
+
+  String get _userId => Session.instance.user?.id ?? '';
+
+  /// Push a single treatment to backend (fire-and-forget, non-blocking)
+  Future<void> _pushCreate(Treatment t) async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: sync CREATE skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync CREATE -> POST /treatments');
+      final resp = await _apiService.post('/treatments', _treatmentToBackend(t));
+      debugPrint('MediTrack: sync CREATE OK: $resp');
+    } catch (e) {
+      debugPrint('MediTrack: sync CREATE failed: $e');
+    }
+  }
+
+  Future<void> _pushUpdate(Treatment t) async {
+    if (_userId.isEmpty || t.id == null) {
+      debugPrint('MediTrack: sync UPDATE skipped - no userId or id');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync UPDATE -> PUT /treatments/${t.id}');
+      final resp = await _apiService.put('/treatments/${t.id}', _treatmentToBackend(t));
+      debugPrint('MediTrack: sync UPDATE OK: $resp');
+    } catch (e) {
+      debugPrint('MediTrack: sync UPDATE failed: $e');
+    }
+  }
+
+  Future<void> _pushDelete(int id) async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: sync DELETE skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync DELETE -> DELETE /treatments/$id');
+      await _apiService.delete('/treatments/$id');
+      debugPrint('MediTrack: sync DELETE OK');
+    } catch (e) {
+      debugPrint('MediTrack: sync DELETE failed: $e');
+    }
+  }
+
+  Future<void> _pushStop(int id) async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: sync STOP skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: sync STOP -> PUT /treatments/$id (status: stopped)');
+      await _apiService.put('/treatments/$id', {'status': 'stopped'});
+      debugPrint('MediTrack: sync STOP OK');
+    } catch (e) {
+      debugPrint('MediTrack: sync STOP failed: $e');
+    }
+  }
+
+  Map<String, dynamic> _treatmentToBackend(Treatment t) => {
+        'medicationId': t.medicationId,
+        'medicationName': t.medicationName,
+        'medicationDosage': t.medicationDosage,
+        'dose': t.dose,
+        'reminderTimes': t.reminderTimes,
+        'startDate': Treatment.dateIso(t.startDate),
+        'endDate': t.endDate != null ? Treatment.dateIso(t.endDate!) : null,
+        'status': t.status.name,
+      };
+
+  /// Pull treatments from backend and upsert locally (call on app start/refresh)
+  Future<void> syncFromBackend() async {
+    if (_userId.isEmpty) {
+      debugPrint('MediTrack: syncFromBackend skipped - no userId');
+      return;
+    }
+    try {
+      debugPrint('MediTrack: syncFromBackend -> GET /treatments');
+      final data = await _apiService.get('/treatments');
+      final list = (data as List?) ?? const [];
+      debugPrint('MediTrack: syncFromBackend got ${list.length} treatments');
+      final db = await _db;
+      for (final item in list) {
+        final map = Map<String, dynamic>.from(item as Map);
+        final backendId = map['id'] as String?;
+        if (backendId == null) continue;
+        final existing = await db.query('treatments',
+            where: 'user_id = ? AND medication_name = ? AND start_date = ?',
+            whereArgs: [_userId, map['medicationName'], map['startDate']],
+            limit: 1);
+        final treatment = Treatment(
+          id: existing.isNotEmpty ? existing.first['id'] as int? : null,
+          userId: _userId,
+          medicationId: map['medicationId'] is int
+              ? map['medicationId'] as int
+              : int.tryParse('${map['medicationId'] ?? ''}'),
+          medicationName: map['medicationName'] as String? ?? '',
+          medicationDosage: map['medicationDosage'] as String?,
+          dose: map['dose'] as String? ?? '1 dose',
+          reminderTimes: (map['reminderTimes'] as List?)?.map((e) => e.toString()).toList() ??
+              (map['reminderTimes'] as String?)?.split(',').where((e) => e.trim().isNotEmpty).toList() ??
+              [],
+          startDate: DateTime.parse((map['startDate'] as String).substring(0, 10)),
+          endDate: map['endDate'] != null
+              ? DateTime.parse((map['endDate'] as String).substring(0, 10))
+              : null,
+          status: treatmentStatusFromString(map['status'] as String? ?? 'active'),
+        );
+        if (existing.isNotEmpty) {
+          await db.update('treatments', treatment.toMap(),
+              where: 'id = ?', whereArgs: [existing.first['id']]);
+        } else {
+          await db.insert('treatments', treatment.toMap()..remove('id'));
+        }
+      }
+    } catch (e) {
+      debugPrint('MediTrack: syncFromBackend failed: $e');
+    }
+  }
+
   final _now = DateTime.now; // évite les réécritures
   String get _nowIso => _now().toIso8601String();
 
@@ -133,6 +265,7 @@ class TreatmentRepository {
     final id = await db.insert('treatments', t.toMap()..remove('id'));
     final created = await _getById(id);
     await _generateLogs(created);
+    unawaited(_pushCreate(created)); // sync to backend (non-blocking)
     return created;
   }
 
@@ -199,6 +332,7 @@ class TreatmentRepository {
         fresh.status == TreatmentStatus.planned) {
       await _generateLogs(fresh, from: _dayStart(_now()));
     }
+    unawaited(_pushUpdate(fresh)); // sync to backend
     return count;
   }
 
@@ -208,7 +342,9 @@ class TreatmentRepository {
     // cascade manuelle : plus sûr que de dépendre du pragma
     await db.delete('intake_logs',
         where: 'treatment_id = ?', whereArgs: [id]);
-    return db.delete('treatments', where: 'id = ?', whereArgs: [id]);
+    final count = await db.delete('treatments', where: 'id = ?', whereArgs: [id]);
+    unawaited(_pushDelete(id)); // sync to backend
+    return count;
   }
 
   /// STOP du cycle de vie : historique conservé, futures prises annulées.
@@ -218,6 +354,7 @@ class TreatmentRepository {
         {'status': TreatmentStatus.stopped.name},
         where: 'id = ?', whereArgs: [id]);
     await _deleteFutureLogsById(id);
+    unawaited(_pushStop(id)); // sync to backend
     return count;
   }
 

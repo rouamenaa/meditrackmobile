@@ -6,6 +6,7 @@ import '../../appointments/models/appointment.dart';
 import '../../appointments/screens/appointment_form_screen.dart';
 import '../../appointments/screens/appointments_screen.dart';
 import '../../appointments/services/appointment_provider.dart';
+import '../../medications/screens/medications_screen.dart';
 import '../../physical_activity/screens/activity_list_screen.dart';
 import '../../treatments/models/treatment.dart';
 import '../../treatments/repositories/treatment_repository.dart';
@@ -170,6 +171,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    // Sync treatments from backend first (non-blocking)
+    _repo.syncFromBackend();
     final future = _load();
     setState(() {
       _data = future;
@@ -216,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _goAppointments() => _open(AppointmentsScreen(user: widget.user));
   void _goTreatments() => _open(TreatmentsScreen(user: widget.user));
+  void _goMedications() => _open(MedicationsScreen(user: widget.user));
   void _goActivity() => _open(const ActivityListScreen());
   void _goSportsAgenda() => _open(SportsAgendaScreen(userId: widget.user.id));
   void _goProfile() => _open(ProfileScreen(user: widget.user));
@@ -317,6 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: _HomeNavBar(
         onHome: () {},
         onTreatments: _goTreatments,
+        onMedications: _goMedications,
         onAppointments: _goAppointments,
         onActivity: _goActivity,
       ),
@@ -1330,12 +1335,14 @@ class _EndingSoonCardState extends State<_EndingSoonCard> {
 class _HomeNavBar extends StatelessWidget {
   final VoidCallback onHome;
   final VoidCallback onTreatments;
+  final VoidCallback onMedications;
   final VoidCallback onAppointments;
   final VoidCallback onActivity;
 
   const _HomeNavBar({
     required this.onHome,
     required this.onTreatments,
+    required this.onMedications,
     required this.onAppointments,
     required this.onActivity,
   });
@@ -1362,23 +1369,28 @@ class _HomeNavBar extends StatelessWidget {
             children: [
               _NavItem(
                 icon: Icons.home_rounded,
-                label: 'Home',
+                label: 'Accueil',
                 active: true,
                 onTap: onHome,
               ),
               _NavItem(
                 icon: Icons.medication_outlined,
-                label: 'Treatments',
+                label: 'Traitements',
                 onTap: onTreatments,
               ),
               _NavItem(
+                icon: Icons.medication_liquid_rounded,
+                label: 'Médicaments',
+                onTap: onMedications,
+              ),
+              _NavItem(
                 icon: Icons.calendar_today_rounded,
-                label: 'Appointments',
+                label: 'Rendez-vous',
                 onTap: onAppointments,
               ),
               _NavItem(
                 icon: Icons.monitor_heart_outlined,
-                label: 'Activity',
+                label: 'Activité',
                 onTap: onActivity,
               ),
             ],

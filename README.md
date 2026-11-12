@@ -1,7 +1,7 @@
 # MediTrack Mobile
 
 Application mobile de suivi médical personnel (Flutter + Node.js/MongoDB) : comptes patients,
-rappels de prise de médicaments, suivi d'activité physique et gestion des rendez-vous.
+rappels de prise de médicaments, catalogue de médicaments, suivi d'activité physique et gestion des rendez-vous.
 
 > Projet académique — le code, les commentaires et l'interface sont en français.
 
@@ -18,6 +18,7 @@ rappels de prise de médicaments, suivi d'activité physique et gestion des rend
 - [3. Construire un APK](#3-construire-un-apk)
 - [Comptes et vérification e-mail](#comptes-et-vérification-e-mail)
 - [Modules](#modules)
+- [Synchronisation Traitements (Option B)](#synchronisation-traitements-option-b)
 - [Design system](#design-system)
 - [Tests et qualité](#tests-et-qualité)
 - [Dépannage](#dépannage)
@@ -30,15 +31,17 @@ rappels de prise de médicaments, suivi d'activité physique et gestion des rend
 | --- | --- |
 | **Tableau de bord** (`home_screen.dart`) | Prochaine prise de médicament (validation en un tap), prochain rendez-vous, traitements du jour, alerte de fin de traitement |
 | **Connexion / inscription** | Inscription avec code de vérification envoyé par e-mail, mot de passe oublié |
-| **Traitements** | Création d'un protocole (dose, horaires, dates), historique des prises, adhérence hebdomadaire, rappels locaux |
-| **Rendez-vous** | Liste des rendez-vous et historique, création d'un rendez-vous (praticien, lieu, motif, présentiel/téléconsultation) |
+| **Traitements** | Création d'un protocole (dose, horaires, dates), historique des prises, adhérence hebdomadaire, rappels locaux, **sync backend** |
+| **Médicaments** | Catalogue personnel (nom, dosage, stock, dates d'expiration) |
+| **Rendez-vous** | Liste des rendez-vous et historique, création (praticien, lieu, motif, présentiel/téléconsultation) |
 | **Activité physique** | Journal d'activités (type, durée, intensité, calories) |
 | **Profil** | Informations personnelles, photo, médecins référents, export PDF du dossier médical, déconnexion |
 
 **Architecture des données**
 
 - **Comptes, authentification, profil** → API Node.js + MongoDB.
-- **Données de santé** (traitements, prises, rendez-vous, activités) → **SQLite locale** (`meditrack.db`), via `sqflite`.
+- **Données de santé** (traitements, prises, médicaments, rendez-vous, activités) → **SQLite locale** (`meditrack.db`), via `sqflite`.
+- **Synchronisation traitements** → API REST `/treatments` (bidirectionnelle, fire-and-forget, offline-first).
 - La session est conservée dans `shared_preferences` (`user_id` + token JWT) et restaurée au lancement.
 
 ---
@@ -70,7 +73,8 @@ meditrackmobile/
 │   └── features/
 │       ├── auth/                     # connexion, inscription, vérification, profil
 │       ├── appointments/             # rendez-vous (modèle, provider, écrans, widgets)
-│       ├── treatments/               # traitements, prises, historique, rappels
+│       ├── treatments/               # traitements, prises, historique, rappels + sync API
+│       ├── medications/              # catalogue médicaments (modèle, repo, écrans)
 │       ├── physical_activity/        # journal d'activité
 │       └── profile/                  # export PDF
 ├── meditrack_backend/                # API Express + MongoDB
@@ -82,7 +86,8 @@ meditrackmobile/
 │   ├── appointments_test.dart
 │   └── features/
 │       ├── appointments/appointment_card_test.dart
-│       └── physical_activity/physical_activity_test.dart
+│       ├── physical_activity/physical_activity_test.dart
+│       └── treatments/treatment_test.dart
 ├── dart_test.yaml                    # reporter `expanded` pour `flutter test`
 └── assets/                           # icônes / images
 ```
@@ -147,6 +152,7 @@ Le serveur écoute sur `0.0.0.0:3000` (donc accessible depuis le téléphone sur
 | `PUT` | `/users/:id/password` | Bearer | Changer le mot de passe |
 | `POST` | `/users/:id/photo` | Bearer | Upload de la photo de profil |
 | `GET`/`POST`/`DELETE` | `/users/:id/medecins…` | Bearer | Médecins référents |
+| `GET`/`POST`/`PUT`/`DELETE` | `/treatments` | Bearer | **CRUD traitements (sync)** |
 
 ---
 
@@ -176,7 +182,7 @@ Le téléphone doit être sur le **même Wi-Fi** que le PC, et le port `3000` au
 pare-feu Windows. Récupérer l'IP du PC (`ipconfig`), puis :
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://192.168.1.20:3000
+flutter run --dart-define=API_BASE_URL=http://192.168.1.69:3000
 ```
 
 > ⚠️ Sans `--dart-define=API_BASE_URL=…`, l'application utilise `10.0.2.2`, qui n'existe pas
@@ -192,7 +198,7 @@ flutter run --dart-define=API_BASE_URL=http://192.168.1.20:3000
 flutter build apk --debug
 
 # Téléphone réel
-flutter build apk --debug --dart-define=API_BASE_URL=http://192.168.1.20:3000
+flutter build apk --debug --dart-define=API_BASE_URL=http://192.168.1.69:3000
 ```
 
 APK généré : `build/app/outputs/flutter-apk/app-debug.apk`
@@ -223,12 +229,45 @@ Si l'e-mail n'arrive pas : vérifier les logs du backend (morgan), le dossier sp
 | Authentification & profil | `lib/features/auth/` |
 | Rendez-vous | `lib/features/appointments/` |
 | Traitements & rappels | `lib/features/treatments/` |
+| Médicaments (catalogue) | `lib/features/medications/` |
 | Activité physique | `lib/features/physical_activity/` |
 | Export PDF | `lib/features/profile/` |
 
 > Convention d'équipe : chaque module est autonome. On n'édite pas le code d'un autre module ;
-> on consomme uniquement ses API publiques (`AppointmentProvider`, `TreatmentRepository`, etc.).
+> on consomme uniquement ses API publiques (`AppointmentProvider`, `TreatmentRepository`, `MedicationRepository`, etc.).
 > La base SQLite est partagée via `DatabaseHelper` (tables créées en `IF NOT EXISTS`).
+
+---
+
+## Synchronisation Traitements (Option B)
+
+Le module **treatments** implémente une **synchronisation bidirectionnelle** avec l'API REST `/treatments` :
+
+- **Local-first** : SQLite reste la source de vérité (offline, rapide, pas de blocage UI).
+- **Push (fire-and-forget)** : chaque `create`, `update`, `delete`, `stop` envoie une requête
+  `POST`/`PUT`/`DELETE` vers `http://<API_BASE_URL>/treatments` (header `Authorization: Bearer <JWT>`).
+  Les échecs réseau sont silencieux → les données restent en local.
+- **Pull** : le *pull-to-refresh* sur le tableau de bord appelle `TreatmentRepository.syncFromBackend()`
+  → `GET /treatments` → upsert local (match par `user_id + medication_name + start_date`).
+- **Schema backend** : `medicationId` accepte `ObjectId` **ou** `string`/`number` (compatibilité SQLite local).
+
+### Tester la sync avec Postman / Bruno
+
+1. **Connexion** : `POST /users/login` → récupérer le token JWT.
+2. **Header** : `Authorization: Bearer <token>`
+3. **Créer** : `POST /treatments` avec body :
+   ```json
+   {
+     "medicationName": "Doliprane",
+     "medicationDosage": "500 mg",
+     "dose": "1 comprimé",
+     "reminderTimes": ["08:00", "20:00"],
+     "startDate": "2026-11-12",
+     "status": "active"
+   }
+   ```
+4. **Lister** : `GET /treatments`
+5. **Pull dans l'app** : pull-to-refresh sur l'accueil → le traitement apparaît localement.
 
 ---
 
@@ -250,7 +289,7 @@ Le tableau de bord suit le design exporté depuis Stitch (`MediTrack Health Mana
 - Typographie : H1 28 px / 700, H3 18 px / 600, corps 16 px, légende 13 px
 - Cartes : rayon 12 px, ombre douce, badge d'icône 40 × 40 px
 - Bouton principal : hauteur 52 px, rayon 12 px ; cibles tactiles ≥ 48 px
-- Barre de navigation basse : 80 px — `Accueil · Traitements · Rendez-vous · Activité`
+- Barre de navigation basse : 80 px — **Accueil · Traitements · Médicaments · Rendez-vous · Activité**
   (le profil s'ouvre via l'avatar de l'en-tête)
 
 L'implémentation est centralisée dans `lib/features/auth/screens/home_screen.dart` (classes
@@ -264,7 +303,7 @@ privées `_P` pour la palette et `_T` pour la typographie).
 flutter analyze                  # analyse statique (lib + test)
 
 flutter test test/appointments_test.dart   # modèles rendez-vous (9 tests)
-flutter test test/features                 # activité physique (3) + widget (5) = 8 tests
+flutter test test/features                 # activité (3) + widget (5) + traitements (40) = 48 tests
 ```
 
 ### Lire la sortie des tests
@@ -307,6 +346,11 @@ Le fichier `dart_test.yaml` force le reporter `expanded`, donc chaque test s'aff
 **Modèle `PhysicalActivity` (`test/features/physical_activity/physical_activity_test.dart`)** — 3 tests :
 aller-retour `toMap()`/`fromMap()`, champs facultatifs nuls, `copyWith()` ciblé.
 
+**Modèle `Treatment` (`test/features/treatments/treatment_test.dart`)** — 40 tests :
+
+- enums, sérialisation, règles métier (`isActive`, `isChronic`, `hasExpiredDate`, `timesPerDay`), `frequencyLabel`,
+  progression `TreatmentSummary`, helpers `date_fr`.
+
 ### Limites connues
 
 Ces tests ne couvrent pas : les écrans complets (navigation de bout en bout), la base SQLite
@@ -331,6 +375,7 @@ manuellement sur appareil.
 | `401` / session perdue | Token expiré : se reconnecter (l'app efface la session invalide) |
 | Données de test à réinitialiser | Désinstaller l'app (efface `meditrack.db`) ou supprimer la base SQLite de l'appareil |
 | Le serveur ne démarre pas | MongoDB n'est pas lancé, ou `MONGO_URI` invalide |
+| Traitement non visible dans MongoDB | Vérifier `flutter run --dart-define=API_BASE_URL=…`, logs `MediTrack: sync CREATE` dans la console, token JWT valide |
 
 ---
 

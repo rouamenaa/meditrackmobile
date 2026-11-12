@@ -16,6 +16,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/users', require('./routes/userRoutes'));
 app.use('/appointments', require('./routes/appointmentRoutes'));
+app.use('/treatments', require('./routes/treatmentRoutes'));
 app.use('/ai', require('./routes/aiRoutes'));
 
 const PORT = process.env.PORT || 3000;
