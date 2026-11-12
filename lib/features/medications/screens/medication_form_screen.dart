@@ -1,9 +1,9 @@
 /// ============================================================
 /// Module – MÉDICAMENTS : formulaire ajout / édition
 ///
-/// Utilisé pour :
-///  - Créer un nouveau médicament (medication == null)
-///  - Modifier un médicament existant (medication != null)
+/// Valeur Ajoutée : recherche de médicament via RxNorm (NIH)
+/// API gratuite sans clé — remplit automatiquement nom, dosage,
+/// forme pharmaceutique depuis la base de données NIH.
 /// ============================================================
 library;
 
@@ -11,8 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/medication.dart';
 import '../repositories/medication_repository.dart';
+import '../services/drug_search_service.dart';
 
-// Réutilisation de la palette de l'écran principal
 const _kPrimary = Color(0xFF0B6B5D);
 const _kNavy = Color(0xFF0A2540);
 const _kBg = Color(0xFFF4F8F7);
@@ -20,7 +20,7 @@ const _kMuted = Color(0xFF6B7280);
 
 class MedicationFormScreen extends StatefulWidget {
   final String userId;
-  final Medication? medication; // null = création
+  final Medication? medication;
 
   const MedicationFormScreen({
     super.key,
@@ -35,8 +35,9 @@ class MedicationFormScreen extends StatefulWidget {
 class _MedicationFormScreenState extends State<MedicationFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _repo = MedicationRepository();
+  final _searchService = DrugSearchService();
 
-  // Contrôleurs de champs
+  // Contrôleurs des champs du formulaire
   final _nameCtrl = TextEditingController();
   final _dosageCtrl = TextEditingController();
   final _manufacturerCtrl = TextEditingController();
@@ -45,10 +46,18 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   final _alertCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
 
+  // Contrôleur de la barre de recherche RxNorm
+  final _searchCtrl = TextEditingController();
+
   MedicationForm _form = MedicationForm.comprime;
-  String? _expiryDate; // "AAAA-MM-JJ"
+  String? _expiryDate;
   bool _trackStock = false;
   bool _loading = false;
+
+  // État de la recherche RxNorm
+  bool _searching = false;
+  List<DrugSearchResult> _searchResults = [];
+  String? _searchError;
 
   bool get _isEditing => widget.medication != null;
 
@@ -81,14 +90,86 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     _stockCtrl.dispose();
     _alertCtrl.dispose();
     _barcodeCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
+
+  // ── Recherche RxNorm ──────────────────────────────────────
+
+  Future<void> _searchDrug() async {
+    final query = _searchCtrl.text.trim();
+    if (query.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _searching = true;
+      _searchResults = [];
+      _searchError = null;
+    });
+    try {
+      final results = await _searchService.search(query);
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _searchResults = results;
+        if (results.isEmpty) {
+          _searchError = 'Aucun résultat pour "$query". Essaie en anglais.';
+        }
+      });
+    } on DrugSearchException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _searchError = e.message;
+      });
+    }
+  }
+
+  /// Remplit le formulaire avec le résultat sélectionné
+  void _applyResult(DrugSearchResult result) {
+    setState(() {
+      _nameCtrl.text = result.name;
+      if (result.dosage != null) _dosageCtrl.text = result.dosage!;
+      if (result.form != null) {
+        final f = result.form!.toLowerCase();
+        if (f.contains('tablet') || f.contains('chewable')) {
+          _form = MedicationForm.comprime;
+        } else if (f.contains('capsule')) {
+          _form = MedicationForm.gelule;
+        } else if (f.contains('suspension') ||
+            f.contains('solution') ||
+            f.contains('syrup')) {
+          _form = MedicationForm.sirop;
+        } else if (f.contains('injection')) {
+          _form = MedicationForm.injection;
+        } else if (f.contains('gel') ||
+            f.contains('cream') ||
+            f.contains('topical')) {
+          _form = MedicationForm.pommade;
+        } else if (f.contains('patch')) {
+          _form = MedicationForm.patch;
+        } else if (f.contains('drop')) {
+          _form = MedicationForm.gouttes;
+        }
+      }
+      _descriptionCtrl.text = 'Source : RxNorm (NIH) — rxcui: ${result.rxcui}';
+      _searchResults = [];
+      _searchCtrl.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✓ "${result.name}" importé depuis RxNorm (NIH)'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _kPrimary,
+      ),
+    );
+  }
+
+  // ── Date d'expiration ─────────────────────────────────────
 
   Future<void> _pickExpiryDate() async {
     final initial = _expiryDate != null
         ? (DateTime.tryParse(_expiryDate!) ?? DateTime.now())
         : DateTime.now().add(const Duration(days: 365));
-
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -96,8 +177,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
       lastDate: DateTime(2040),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme:
-              const ColorScheme.light(primary: _kPrimary),
+          colorScheme: const ColorScheme.light(primary: _kPrimary),
         ),
         child: child!,
       ),
@@ -110,27 +190,24 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     }
   }
 
+  // ── Sauvegarde ────────────────────────────────────────────
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    final stockQty =
-        _trackStock && _stockCtrl.text.isNotEmpty
-            ? int.tryParse(_stockCtrl.text)
-            : null;
-    final alertQty =
-        _trackStock && _alertCtrl.text.isNotEmpty
-            ? int.tryParse(_alertCtrl.text)
-            : null;
-
+    final stockQty = _trackStock && _stockCtrl.text.isNotEmpty
+        ? int.tryParse(_stockCtrl.text)
+        : null;
+    final alertQty = _trackStock && _alertCtrl.text.isNotEmpty
+        ? int.tryParse(_alertCtrl.text)
+        : null;
     final now = DateTime.now().toIso8601String();
 
     if (_isEditing) {
-      final updated = widget.medication!.copyWith(
+      await _repo.update(widget.medication!.copyWith(
         name: _nameCtrl.text.trim(),
-        dosage: _dosageCtrl.text.trim().isEmpty
-            ? null
-            : _dosageCtrl.text.trim(),
+        dosage: _dosageCtrl.text.trim().isEmpty ? null : _dosageCtrl.text.trim(),
         form: _form,
         manufacturer: _manufacturerCtrl.text.trim().isEmpty
             ? null
@@ -144,15 +221,12 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         barcode: _barcodeCtrl.text.trim().isEmpty
             ? null
             : _barcodeCtrl.text.trim(),
-      );
-      await _repo.update(updated);
+      ));
     } else {
-      final newMed = Medication(
+      await _repo.create(Medication(
         userId: widget.userId,
         name: _nameCtrl.text.trim(),
-        dosage: _dosageCtrl.text.trim().isEmpty
-            ? null
-            : _dosageCtrl.text.trim(),
+        dosage: _dosageCtrl.text.trim().isEmpty ? null : _dosageCtrl.text.trim(),
         form: _form,
         manufacturer: _manufacturerCtrl.text.trim().isEmpty
             ? null
@@ -167,8 +241,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             ? null
             : _barcodeCtrl.text.trim(),
         createdAt: now,
-      );
-      await _repo.create(newMed);
+      ));
     }
 
     if (!mounted) return;
@@ -176,7 +249,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     Navigator.of(context).pop();
   }
 
-  // ================= BUILD =================
+  // ── BUILD ─────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -197,7 +271,122 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           children: [
-            // ---------- Informations principales ----------
+
+            // ════════ SECTION RECHERCHE RXNORM ════════
+            _sectionTitle('🔍 Recherche automatique (RxNorm NIH)'),
+            const SizedBox(height: 6),
+            Text(
+              'Cherche un médicament par son nom pour remplir le formulaire automatiquement.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _searchCtrl,
+                            textInputAction: TextInputAction.search,
+                            onFieldSubmitted: (_) => _searchDrug(),
+                            decoration: InputDecoration(
+                              hintText: 'Ex: ibuprofen, amoxicillin...',
+                              prefixIcon:
+                                  const Icon(Icons.search, color: _kMuted),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _searching
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2.5, color: _kPrimary),
+                                )
+                              : ElevatedButton(
+                                  onPressed: _searchDrug,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _kPrimary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 10),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text('Rechercher',
+                                      style: TextStyle(fontSize: 13)),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Résultats de recherche
+                  if (_searchError != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Text(_searchError!,
+                          style: TextStyle(
+                              color: Colors.orange.shade700, fontSize: 13)),
+                    ),
+                  if (_searchResults.isNotEmpty) ...[
+                    const Divider(height: 1),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, indent: 16),
+                      itemBuilder: (_, i) {
+                        final r = _searchResults[i];
+                        return ListTile(
+                          leading: const Icon(Icons.medication_outlined,
+                              color: _kPrimary),
+                          title: Text(r.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 14)),
+                          subtitle: Text(
+                            [
+                              if (r.dosage != null) r.dosage!,
+                              if (r.form != null) r.form!,
+                            ].join(' · '),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                          trailing: const Icon(Icons.arrow_forward_ios,
+                              size: 14, color: _kMuted),
+                          onTap: () => _applyResult(r),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ════════ INFORMATIONS PRINCIPALES ════════
             _sectionTitle('Informations principales'),
             const SizedBox(height: 10),
             _fieldCard(children: [
@@ -205,9 +394,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                 controller: _nameCtrl,
                 label: 'Nom du médicament *',
                 icon: Icons.medication_rounded,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Nom obligatoire'
-                    : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Nom obligatoire' : null,
               ),
               _divider(),
               _textField(
@@ -225,19 +413,19 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
 
             const SizedBox(height: 20),
 
-            // ---------- Forme pharmaceutique ----------
+            // ════════ FORME PHARMACEUTIQUE ════════
             _sectionTitle('Forme pharmaceutique'),
             const SizedBox(height: 10),
             _fieldCard(children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: DropdownButtonFormField<MedicationForm>(
                   value: _form,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    prefixIcon: Icon(Icons.category_outlined,
-                        color: _kMuted),
+                    prefixIcon:
+                        Icon(Icons.category_outlined, color: _kMuted),
                     labelText: 'Forme',
                   ),
                   items: MedicationForm.values.map((f) {
@@ -254,8 +442,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
 
             const SizedBox(height: 20),
 
-            // ---------- Date d'expiration ----------
-            _sectionTitle('Date d\'expiration'),
+            // ════════ DATE D'EXPIRATION ════════
+            _sectionTitle("Date d'expiration"),
             const SizedBox(height: 10),
             _fieldCard(children: [
               ListTile(
@@ -265,9 +453,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                       ? _fmtDate(_expiryDate!)
                       : 'Non renseignée',
                   style: TextStyle(
-                    color: _expiryDate != null
-                        ? _kNavy
-                        : Colors.grey.shade400,
+                    color:
+                        _expiryDate != null ? _kNavy : Colors.grey.shade400,
                     fontSize: 15,
                   ),
                 ),
@@ -277,8 +464,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                     if (_expiryDate != null)
                       IconButton(
                         icon: const Icon(Icons.clear, color: _kMuted),
-                        onPressed: () =>
-                            setState(() => _expiryDate = null),
+                        onPressed: () => setState(() => _expiryDate = null),
                         tooltip: 'Effacer',
                       ),
                     TextButton(
@@ -293,7 +479,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
 
             const SizedBox(height: 20),
 
-            // ---------- Suivi du stock ----------
+            // ════════ SUIVI DU STOCK ════════
             _sectionTitle('Suivi du stock'),
             const SizedBox(height: 10),
             _fieldCard(children: [
@@ -334,7 +520,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
 
             const SizedBox(height: 20),
 
-            // ---------- Notes ----------
+            // ════════ NOTES ════════
             _sectionTitle('Notes'),
             const SizedBox(height: 10),
             _fieldCard(children: [
@@ -348,7 +534,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
 
             const SizedBox(height: 32),
 
-            // ---------- Bouton Enregistrer ----------
+            // ════════ BOUTON ENREGISTRER ════════
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -382,7 +568,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     );
   }
 
-  // --------- Widgets helpers ---------
+  // ── Widgets helpers ───────────────────────────────────────
 
   Widget _sectionTitle(String title) => Text(
         title.toUpperCase(),
@@ -408,8 +594,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         child: Column(children: children),
       );
 
-  Widget _divider() =>
-      const Divider(height: 1, indent: 56, endIndent: 16);
+  Widget _divider() => const Divider(height: 1, indent: 56, endIndent: 16);
 
   Widget _textField({
     required TextEditingController controller,
@@ -421,8 +606,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     int maxLines = 1,
   }) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: TextFormField(
         controller: controller,
         validator: validator,
