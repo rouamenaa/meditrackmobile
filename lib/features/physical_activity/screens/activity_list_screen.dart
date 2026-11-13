@@ -5,6 +5,7 @@ import '../services/activity_reminder_service.dart';
 import '../services/activity_service.dart';
 import '../widgets/activity_card.dart';
 import '../widgets/daily_motivation_card.dart';
+import '../widgets/weather_sport_card.dart';
 import 'activity_form_screen.dart';
 import 'activity_reminder_screen.dart';
 import 'activity_recommendations_screen.dart';
@@ -164,18 +165,28 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   Widget build(BuildContext context) {
     const kPrimaryGreen = Color(0xFF0B6B5D);
     const kNavy = Color(0xFF0A2540);
-    const kBackground = Color(0xFFF8F7FF);
+    const kBackground = Color(0xFFF8FAFC);
 
     return Scaffold(
       backgroundColor: kBackground,
       appBar: AppBar(
         title: const Text(
           'Physical Activity',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.3,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: kNavy,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE2E8F0),
+            height: 1,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome_rounded),
@@ -246,13 +257,25 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
               },
             ),
 
-            // 2. Carte « Conseil & Motivation du Jour » (API ZenQuotes / Repli Sport-Santé)
+            // 2. Carte unifiée « Weather-Based Sports Recommendations » (Open-Meteo & Suggestions)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: WeatherSportCard(
+                onOpenRecommendations: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ActivityRecommendationsScreen(),
+                    ),
+                  );
+                  _loadData();
+                },
+              ),
+            ),
+
+            // 3. Carte « Conseil & Motivation du Jour » (API ZenQuotes / Repli Sport-Santé)
             const DailyMotivationCard(),
 
-            // 3. Bannière d'accès aux Recommandations personnalisées
-            _buildRecommendationsBanner(),
-
-            // 3. Filtres par type de sport (Barre horizontale de chips)
+            // 4. Filtres par type de sport (Barre horizontale de chips)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: SizedBox(
@@ -365,12 +388,12 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A000000),
+            color: Color(0x06000000),
             blurRadius: 10,
-            offset: Offset(0, 2),
+            offset: Offset(0, 3),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,24 +411,27 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: kNavy,
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                 decoration: BoxDecoration(
                   color: summary.goalAchieved
                       ? const Color(0xFFDCFCE7)
                       : kPrimaryGreen.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   summary.goalAchieved ? 'Goal reached 🎉' : '$percent% of goal',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: summary.goalAchieved ? const Color(0xFF15803D) : kPrimaryGreen,
+                    color: summary.goalAchieved
+                        ? const Color(0xFF15803D)
+                        : kPrimaryGreen,
                   ),
                 ),
               ),
@@ -418,9 +444,11 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             child: LinearProgressIndicator(
               value: summary.goalProgress,
               minHeight: 7,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: const Color(0xFFF1F5F9),
               valueColor: AlwaysStoppedAnimation<Color>(
-                summary.goalAchieved ? const Color(0xFF12B76A) : kPrimaryGreen,
+                summary.goalAchieved
+                    ? const Color(0xFF10B981)
+                    : kPrimaryGreen,
               ),
             ),
           ),
@@ -433,93 +461,29 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                 label: 'Active time',
                 value: '${summary.totalMinutes} min',
                 subtext: '/ ${summary.weeklyGoalMinutes} min WHO',
+                icon: Icons.timer_outlined,
+                iconColor: kPrimaryGreen,
               ),
-              Container(height: 28, width: 1, color: Colors.grey.shade200),
+              Container(height: 32, width: 1, color: const Color(0xFFE2E8F0)),
               _buildStatItem(
                 label: 'Workouts',
                 value: '${summary.sessionCount}',
-                subtext: summary.sessionCount > 1 ? 'workouts' : 'workout',
+                subtext: summary.sessionCount > 1 ? 'sessions' : 'session',
+                icon: Icons.fitness_center_rounded,
+                iconColor: kNavy,
               ),
-              Container(height: 28, width: 1, color: Colors.grey.shade200),
+              Container(height: 32, width: 1, color: const Color(0xFFE2E8F0)),
               _buildStatItem(
                 label: 'Calories',
                 value: '${summary.totalCalories}',
                 subtext: 'kcal burned',
-                valueColor: Colors.deepOrange,
+                valueColor: const Color(0xFFEA580C),
+                icon: Icons.local_fire_department_rounded,
+                iconColor: const Color(0xFFEA580C),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRecommendationsBanner() {
-    const kPrimaryGreen = Color(0xFF0B6B5D);
-    const kNavy = Color(0xFF0A2540);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-      decoration: BoxDecoration(
-        color: kPrimaryGreen.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kPrimaryGreen.withValues(alpha: 0.25)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ActivityRecommendationsScreen(),
-              ),
-            );
-            _loadData();
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: kPrimaryGreen.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.auto_awesome,
-                      color: kPrimaryGreen, size: 18),
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Personalized recommendations',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: kNavy,
-                        ),
-                      ),
-                      SizedBox(height: 1),
-                      Text(
-                        'Activities tailored to your health profile and WHO goals',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: kPrimaryGreen,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_ios_rounded,
-                    size: 14, color: kPrimaryGreen),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -529,16 +493,25 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     required String value,
     required String subtext,
     Color? valueColor,
+    required IconData icon,
+    required Color iconColor,
   }) {
     return Column(
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: valueColor ?? const Color(0xFF0A2540),
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.bold,
+                color: valueColor ?? const Color(0xFF0A2540),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 2),
         Text(
@@ -555,29 +528,29 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(22),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: kPrimaryGreen.withValues(alpha: 0.1),
+                color: kPrimaryGreen.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.fitness_center_rounded,
-                size: 54,
+                Icons.directions_run_rounded,
+                size: 48,
                 color: kPrimaryGreen,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text(
               (_selectedFilter == 'All' || _selectedFilter == 'Tous')
-                  ? 'No activities recorded'
+                  ? 'No workouts recorded'
                   : 'No $_selectedFilter workouts',
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: FontWeight.bold,
                 color: kNavy,
               ),
@@ -585,21 +558,29 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             const SizedBox(height: 8),
             Text(
               (_selectedFilter == 'All' || _selectedFilter == 'Tous')
-                  ? 'Track your walking, running, cycling, or swimming sessions to maintain consistent physical activity.'
+                  ? 'Log your walking, running, cycling, or swimming sessions to track your weekly WHO goals.'
                   : 'Add your first workout in this category.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade600, height: 1.4),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _navigateToAdd,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Log a workout'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimaryGreen,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
               ),
             ),
           ],

@@ -221,8 +221,8 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
   }
 
   void _showActivityDetails(PhysicalActivity activity) {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
     final isFuture = activity.activityDate.isAfter(DateTime.now());
 
     showModalBottomSheet(
@@ -546,9 +546,9 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
-    const kSurface = Color(0xFFF5F7FA);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
+    const kSurface = Color(0xFFF8FAFC);
 
     final selectedDayActivities = _getActivitiesForDay(_selectedDay);
 
@@ -683,8 +683,8 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
   }
 
   Widget _buildCalendarCard() {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
 
     final monthTitle =
         '${_monthNames[_displayedMonth.month - 1]} ${_displayedMonth.year}';
@@ -915,8 +915,8 @@ class _SportsAgendaScreenState extends State<SportsAgendaScreen> {
   }
 
   Widget _buildSessionCard(PhysicalActivity activity) {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
     final isFuture = activity.activityDate.isAfter(DateTime.now());
 
     return Container(

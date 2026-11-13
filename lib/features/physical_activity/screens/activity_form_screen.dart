@@ -316,383 +316,419 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isEditMode ? 'Edit Activity' : 'New Activity',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          _isEditMode ? 'Edit Activity' : 'New Workout',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.2,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: kNavy,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE2E8F0),
+            height: 1,
+          ),
+        ),
       ),
-      backgroundColor: const Color(0xFFF8F7FF),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Type d'activité (Chips visuels)
-                const Text(
-                  'Activity type *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _activityTypes.map((t) {
-                    final isSelected = _selectedType == t.$1;
-                    return ChoiceChip(
-                      avatar: Icon(
-                        t.$2,
-                        size: 18,
-                        color: isSelected ? Colors.white : kPrimaryGreen,
-                      ),
-                      label: Text(t.$1),
-                      selected: isSelected,
-                      selectedColor: kPrimaryGreen,
-                      backgroundColor: Colors.white,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : kNavy,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(
-                          color: isSelected ? kPrimaryGreen : Colors.grey.shade300,
+                // SECTION 1 : Type d'activité & Planification
+                _buildFormCard(
+                  title: 'Activity & Schedule',
+                  icon: Icons.directions_run_rounded,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Activity type *',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kNavy,
                         ),
                       ),
-                      onSelected: (val) {
-                        if (val) {
-                          setState(() => _selectedType = t.$1);
-                          _recomputeCaloriesEstimate();
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-
-                // 2. Date et Heure de l'activité
-                const Text(
-                  'Session date and time *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: InkWell(
-                        onTap: _pickDate,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today_rounded,
-                                  color: kPrimaryGreen, size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                formattedDate,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  color: kNavy,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Spacer(),
-                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: InkWell(
-                        onTap: _pickTime,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.access_time_rounded,
-                                  color: kPrimaryGreen, size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                formattedTime,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  color: kNavy,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Spacer(),
-                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_selectedDate.isAfter(DateTime.now())) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: kPrimaryGreen.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: kPrimaryGreen.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.notifications_active_rounded,
-                          color: kPrimaryGreen,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Upcoming session: a notification will be sent 5 min before (${_selectedDate.subtract(const Duration(minutes: 5)).hour.toString().padLeft(2, '0')}:${_selectedDate.subtract(const Duration(minutes: 5)).minute.toString().padLeft(2, '0')}).',
-                            style: const TextStyle(
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _activityTypes.map((t) {
+                          final isSelected = _selectedType == t.$1;
+                          return ChoiceChip(
+                            avatar: Icon(
+                              t.$2,
+                              size: 17,
+                              color: isSelected ? Colors.white : kPrimaryGreen,
+                            ),
+                            label: Text(t.$1),
+                            selected: isSelected,
+                            selectedColor: kPrimaryGreen,
+                            backgroundColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : kNavy,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                               fontSize: 12.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: isSelected ? kPrimaryGreen : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            showCheckmark: false,
+                            onSelected: (val) {
+                              if (val) {
+                                setState(() => _selectedType = t.$1);
+                                _recomputeCaloriesEstimate();
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Date and time *',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kNavy,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: InkWell(
+                              onTap: _pickDate,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today_rounded,
+                                        color: kPrimaryGreen, size: 17),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      formattedDate,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        color: kNavy,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: InkWell(
+                              onTap: _pickTime,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.access_time_rounded,
+                                        color: kPrimaryGreen, size: 17),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      formattedTime,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        color: kNavy,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_selectedDate.isAfter(DateTime.now())) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: kPrimaryGreen.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: kPrimaryGreen.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.notifications_active_rounded,
+                                color: kPrimaryGreen,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Smart Reminder: notification 5 min before (${_selectedDate.subtract(const Duration(minutes: 5)).hour.toString().padLeft(2, '0')}:${_selectedDate.subtract(const Duration(minutes: 5)).minute.toString().padLeft(2, '0')}).',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: kNavy,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // SECTION 2 : Métriques & Effort
+                _buildFormCard(
+                  title: 'Workout Metrics',
+                  icon: Icons.speed_rounded,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Duration *',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: kNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _durationController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: _inputDecoration(
+                                    hint: 'e.g. 45',
+                                    icon: Icons.timer_outlined,
+                                    suffixText: 'min',
+                                  ),
+                                  onChanged: (_) => _recomputeCaloriesEstimate(),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    final parsed = int.tryParse(value.trim());
+                                    if (parsed == null || parsed <= 0) {
+                                      return '> 0 min';
+                                    }
+                                    if (parsed > 1440) {
+                                      return 'Max 24h';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Distance',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: kNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _distanceController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: _inputDecoration(
+                                    hint: 'e.g. 5.5',
+                                    icon: Icons.route_outlined,
+                                    suffixText: 'km',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) return null;
+                                    final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
+                                    if (parsed == null || parsed < 0) {
+                                      return 'Invalid';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Effort intensity *',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kNavy,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: _intensities.map((item) {
+                          final isSelected = _selectedIntensity == item.$1;
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: ChoiceChip(
+                                label: Center(
+                                  child: Text(
+                                    item.$1,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : item.$2,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ),
+                                selected: isSelected,
+                                selectedColor: item.$2,
+                                backgroundColor: item.$2.withValues(alpha: 0.08),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: isSelected ? item.$2 : item.$2.withValues(alpha: 0.25),
+                                  ),
+                                ),
+                                showCheckmark: false,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setState(() => _selectedIntensity = item.$1);
+                                    _recomputeCaloriesEstimate();
+                                  }
+                                },
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Calories burned',
+                            style: TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: kNavy,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-
-                // 3. Durée et Intensité
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Duration *',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: kNavy,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _durationController,
-                            keyboardType: TextInputType.number,
-                            decoration: _inputDecoration(
-                              hint: 'e.g. 45',
-                              icon: Icons.timer_outlined,
-                              suffixText: 'min',
-                            ),
-                            onChanged: (_) => _recomputeCaloriesEstimate(),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Duration is required';
-                              }
-                              final parsed = int.tryParse(value.trim());
-                              if (parsed == null || parsed <= 0) {
-                                return '> 0 min';
-                              }
-                              if (parsed > 1440) {
-                                return 'Max 1440 min (24h)';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Distance (optional)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: kNavy,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _distanceController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: _inputDecoration(
-                              hint: 'e.g. 5.5',
-                              icon: Icons.route_outlined,
-                              suffixText: 'km',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) return null;
-                              final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
-                              if (parsed == null || parsed < 0) {
-                                return 'Invalid distance';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // 4. Intensité (ChoiceChips colorés)
-                const Text(
-                  'Effort intensity *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: _intensities.map((item) {
-                    final isSelected = _selectedIntensity == item.$1;
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: ChoiceChip(
-                          label: Center(
-                            child: Text(
-                              item.$1,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : item.$2,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                          if (_suggestedCalories != null)
+                            InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: _applySuggestedCalories,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.auto_awesome_rounded,
+                                        size: 13, color: Color(0xFFEA580C)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Suggested: ~$_suggestedCalories kcal',
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFEA580C),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: item.$2,
-                          backgroundColor: item.$2.withValues(alpha: 0.08),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(
-                              color: isSelected ? item.$2 : item.$2.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          onSelected: (val) {
-                            if (val) {
-                              setState(() => _selectedIntensity = item.$1);
-                              _recomputeCaloriesEstimate();
-                            }
-                          },
-                        ),
+                        ],
                       ),
-                    );
-                  }).toList(),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _caloriesController,
+                        keyboardType: TextInputType.number,
+                        decoration: _inputDecoration(
+                          hint: _suggestedCalories != null
+                              ? 'e.g. $_suggestedCalories'
+                              : 'e.g. 250',
+                          icon: Icons.local_fire_department_rounded,
+                          suffixText: 'kcal',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return null;
+                          final parsed = int.tryParse(value.trim());
+                          if (parsed == null || parsed < 0) {
+                            return 'Invalid calorie amount';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 20),
 
-                // 5. Calories brûlées (avec suggestion auto)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Calories burned (kcal)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: kNavy,
-                      ),
-                    ),
-                    if (_suggestedCalories != null)
-                      TextButton.icon(
-                        onPressed: _applySuggestedCalories,
-                        icon: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFEF6C00)),
-                        label: Text(
-                          'Suggested: ~$_suggestedCalories kcal',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFEF6C00),
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _caloriesController,
-                  keyboardType: TextInputType.number,
-                  decoration: _inputDecoration(
-                    hint: _suggestedCalories != null ? 'e.g. $_suggestedCalories' : 'e.g. 250',
-                    icon: Icons.local_fire_department_outlined,
-                    suffixText: 'kcal',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return null;
-                    final parsed = int.tryParse(value.trim());
-                    if (parsed == null || parsed < 0) {
-                      return 'Invalid calorie amount';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // 6. Notes
-                const Text(
-                  'Notes / Sensations (optional)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy,
+                // SECTION 3 : Notes / Sensations
+                _buildFormCard(
+                  title: 'Notes & Sensations',
+                  icon: Icons.notes_rounded,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _notesController,
+                        maxLines: 3,
+                        decoration: _inputDecoration(
+                          hint: 'Feelings, route, breathing, effort...',
+                          icon: Icons.edit_note_rounded,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _notesController,
-                  maxLines: 3,
-                  decoration: _inputDecoration(
-                    hint: 'Feelings, route, breathing, effort...',
-                    icon: Icons.edit_note_rounded,
-                  ),
-                ),
-                const SizedBox(height: 30),
+
+                const SizedBox(height: 24),
 
                 // Boutons d'action
                 ElevatedButton(
@@ -700,11 +736,11 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimaryGreen,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 1,
+                    elevation: 0,
                   ),
                   child: _isSaving
                       ? const SizedBox(
@@ -716,26 +752,73 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
                           ),
                         )
                       : Text(
-                          _isEditMode ? 'Save changes' : 'Add activity',
+                          _isEditMode ? 'Save changes' : 'Log workout',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 15.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 TextButton(
                   onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     foregroundColor: Colors.grey.shade700,
                   ),
-                  child: const Text('Cancel', style: TextStyle(fontSize: 15)),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 14)),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFormCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    const kNavy = Color(0xFF0A2540);
+    const kPrimaryGreen = Color(0xFF0B6B5D);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x04000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 17, color: kPrimaryGreen),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: kNavy,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }
@@ -747,22 +830,28 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
   }) {
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF0B6B5D)),
+      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13.5),
+      prefixIcon: Icon(icon, color: const Color(0xFF0B6B5D), size: 20),
       suffixText: suffixText,
+      suffixStyle: const TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF0A2540),
+        fontSize: 13,
+      ),
       filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      fillColor: const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF0B6B5D), width: 1.8),
+        borderSide: const BorderSide(color: Color(0xFF0B6B5D), width: 1.6),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

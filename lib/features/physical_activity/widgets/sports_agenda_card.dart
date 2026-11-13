@@ -98,10 +98,9 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
 
   @override
   Widget build(BuildContext context) {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
-    const kTextSecondary = Color(0xFF6C757D);
-    const kSurfaceContainerLow = Color(0xFFF0F3FF);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
+    const kTextSecondary = Color(0xFF64748B);
 
     final now = DateTime.now();
     // Séances du mois actuel uniquement (filtrage strict sur l'année et le mois locaux)
@@ -121,13 +120,14 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
 
     return Container(
       decoration: BoxDecoration(
-        color: kSurfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0D1D3557),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
           ),
         ],
       ),
@@ -149,12 +149,12 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: kPrimary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        color: kPrimary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
                         Icons.calendar_month_rounded,
-                        size: 22,
+                        size: 20,
                         color: kPrimary,
                       ),
                     ),
@@ -164,20 +164,20 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'MY WORKOUT AGENDA',
+                            'WORKOUT AGENDA',
                             style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
                               color: kPrimary,
-                              letterSpacing: 0.6,
+                              letterSpacing: 0.8,
                             ),
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'Activity Calendar',
+                            'Activity Schedule',
                             style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                               color: kTextPrimary,
                             ),
                           ),
@@ -186,18 +186,18 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                     ),
                     Container(
                       padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                       decoration: BoxDecoration(
-                        color: kPrimary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
+                        color: kPrimary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
                         _loading
                             ? '...'
                             : '$thisMonthCount this month',
                         style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
                           color: kPrimary,
                         ),
                       ),
@@ -210,22 +210,23 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                 // Contenu central : prochaine séance ou incitation
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: nextActivity != null
                       ? Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
                                 color: kPrimary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(nextActivity.icon,
-                                  size: 18, color: kPrimary),
+                                  size: 17, color: kPrimary),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -257,7 +258,7 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                                     _formatDateShort(nextActivity.activityDate),
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w600,
                                       color: kPrimary,
                                     ),
                                   ),
@@ -266,24 +267,24 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                  horizontal: 6, vertical: 2.5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00C853)
-                                    .withValues(alpha: 0.12),
+                                color: const Color(0xFFECFDF5),
                                 borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFA7F3D0)),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.alarm_on_rounded,
-                                      size: 12, color: Color(0xFF00A844)),
-                                  SizedBox(width: 2),
+                                      size: 12, color: Color(0xFF047857)),
+                                  SizedBox(width: 3),
                                   Text(
                                     '-5 min',
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF00A844),
+                                      color: Color(0xFF047857),
                                     ),
                                   ),
                                 ],
@@ -291,19 +292,19 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
                             ),
                           ],
                         )
-                      : Row(
+                      : const Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.event_note_rounded,
-                              size: 20,
+                              size: 18,
                               color: kTextSecondary,
                             ),
-                            const SizedBox(width: 8),
-                            const Expanded(
+                            SizedBox(width: 8),
+                            Expanded(
                               child: Text(
                                 'View your past workouts and schedule upcoming activities.',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 12.5,
                                   color: kTextSecondary,
                                 ),
                               ),
@@ -316,15 +317,15 @@ class _SportsAgendaCardState extends State<SportsAgendaCard> {
 
                 // Bouton d'action
                 SizedBox(
-                  height: 46,
+                  height: 42,
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: _handleOpen,
-                    icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                    icon: const Icon(Icons.calendar_month_rounded, size: 17),
                     label: const Text(
                       'Open workout agenda',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimary,

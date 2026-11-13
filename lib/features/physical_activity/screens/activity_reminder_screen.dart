@@ -105,7 +105,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
   Widget build(BuildContext context) {
     const kPrimaryGreen = Color(0xFF0B6B5D);
     const kNavy = Color(0xFF0A2540);
-    const kBackground = Color(0xFFF8F7FF);
+    const kBackground = Color(0xFFF8FAFC);
 
     if (_loading) {
       return const Scaffold(
@@ -121,11 +121,21 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
       appBar: AppBar(
         title: const Text(
           'Smart Reminders',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.2,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: kNavy,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE2E8F0),
+            height: 1,
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(
@@ -355,7 +365,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 1,
+                elevation: 0,
               ),
               child: _isSaving
                   ? const SizedBox(
@@ -393,7 +403,7 @@ class _ActivityReminderScreenState extends State<ActivityReminderScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x06000000),
