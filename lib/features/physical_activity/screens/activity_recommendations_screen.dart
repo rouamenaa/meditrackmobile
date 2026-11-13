@@ -3,8 +3,10 @@ import '../../auth/models/user.dart';
 import '../../auth/services/session.dart';
 import '../models/activity_recommendation.dart';
 import '../models/physical_activity.dart';
+import '../models/weather_data.dart';
 import '../services/activity_recommendation_service.dart';
 import '../services/activity_service.dart';
+import '../services/weather_service.dart';
 import 'activity_form_screen.dart';
 
 /// Écran moderne des Recommandations Personnalisées d'Activité Physique
@@ -35,6 +37,7 @@ class _ActivityRecommendationsScreenState
   );
   List<ActivityRecommendation> _recommendations = [];
   List<String> _healthTips = [];
+  WeatherData? _weather;
 
   String? get _effectiveUserId =>
       widget.user?.id ?? Session.instance.user?.id;
@@ -53,6 +56,7 @@ class _ActivityRecommendationsScreenState
     final summary =
         await _activityService.getWeeklySummary(userId: _effectiveUserId);
     final tips = await _recommendationService.fetchExternalHealthTips();
+    final weather = await WeatherService.instance.getCurrentWeather();
 
     final recs = _recommendationService.generateRecommendations(
       user: user,
@@ -60,12 +64,18 @@ class _ActivityRecommendationsScreenState
       summary: summary,
     );
 
+    final weatherRec = _recommendationService.generateWeatherRecommendation(
+      weather: weather,
+      user: user,
+    );
+
     if (!mounted) return;
     setState(() {
       _currentUser = user;
       _history = history;
       _weeklySummary = summary;
-      _recommendations = recs;
+      _weather = weather;
+      _recommendations = [weatherRec, ...recs];
       _healthTips = tips;
       _loading = false;
     });
@@ -100,20 +110,30 @@ class _ActivityRecommendationsScreenState
 
   @override
   Widget build(BuildContext context) {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
-    const kSurface = Color(0xFFF5F7FA);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
+    const kSurface = Color(0xFFF8FAFC);
 
     return Scaffold(
       backgroundColor: kSurface,
       appBar: AppBar(
         title: const Text(
           'Workout Recommendations',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.2,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: kTextPrimary,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE2E8F0),
+            height: 1,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: kPrimary),
@@ -146,19 +166,48 @@ class _ActivityRecommendationsScreenState
                       const Icon(Icons.auto_awesome,
                           color: kPrimary, size: 20),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Recommended activities for you',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: kTextPrimary,
+                      const Expanded(
+                        child: Text(
+                          'Recommended activities',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: kTextPrimary,
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                      if (_weather != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_weather!.weatherIcon,
+                                  size: 13, color: const Color(0xFF1D4ED8)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${_weather!.temperature.round()}°C',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E40AF),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Text(
-                        '${_recommendations.length} suggestions',
+                        '${_recommendations.length} items',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade600,
                         ),
@@ -182,8 +231,8 @@ class _ActivityRecommendationsScreenState
   }
 
   Widget _buildPatientProfileCard() {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
 
     final user = _currentUser;
     final ageLabel = user?.age != null ? '${user!.age} yrs' : 'Not specified';
@@ -417,8 +466,8 @@ class _ActivityRecommendationsScreenState
   }
 
   Widget _buildRecommendationCard(ActivityRecommendation rec) {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -439,9 +488,11 @@ class _ActivityRecommendationsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Ligne 1 : Catégorie & Badge d'intensité
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Ligne 1 : Catégorie, Badge météo & Badge d'intensité
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Container(
                   padding:
@@ -459,6 +510,32 @@ class _ActivityRecommendationsScreenState
                     ),
                   ),
                 ),
+                if (rec.source == 'Open-Meteo Weather Advisor')
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.wb_sunny_rounded,
+                            size: 11, color: Color(0xFFB45309)),
+                        SizedBox(width: 3),
+                        Text(
+                          'Weather Matched',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -685,8 +762,8 @@ class _ActivityRecommendationsScreenState
   }
 
   Widget _buildHealthTipsCard() {
-    const kPrimary = Color(0xFF00685D);
-    const kTextPrimary = Color(0xFF1D3557);
+    const kPrimary = Color(0xFF0B6B5D);
+    const kTextPrimary = Color(0xFF0A2540);
 
     return Container(
       padding: const EdgeInsets.all(16),

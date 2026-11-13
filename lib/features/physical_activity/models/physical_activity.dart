@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class PhysicalActivity {
   final int? id;
+  final String? remoteId; // Identifiant distant MongoDB (_id)
   final String? userId; // Identifiant de l'utilisateur (aligné avec MongoDB / Session)
   final String type; // Marche, Course, Vélo, Natation, Autre
   final int durationMinutes;
@@ -13,6 +14,7 @@ class PhysicalActivity {
 
   PhysicalActivity({
     this.id,
+    this.remoteId,
     this.userId,
     required this.type,
     required this.durationMinutes,
@@ -194,6 +196,7 @@ class PhysicalActivity {
 
   Map<String, dynamic> toMap() => {
         'id': id,
+        'remote_id': remoteId,
         'user_id': userId,
         'type': type,
         'duration_minutes': durationMinutes,
@@ -206,6 +209,7 @@ class PhysicalActivity {
 
   factory PhysicalActivity.fromMap(Map<String, dynamic> map) => PhysicalActivity(
         id: map['id'] as int?,
+        remoteId: (map['remote_id'] ?? map['remoteId'])?.toString(),
         userId: map['user_id']?.toString(),
         type: map['type'] as String,
         durationMinutes: map['duration_minutes'] as int,
@@ -218,8 +222,36 @@ class PhysicalActivity {
         caloriesBurned: map['calories_burned'] as int?,
       );
 
+  Map<String, dynamic> toJson() => {
+        if (remoteId != null) 'id': remoteId,
+        if (id != null) 'localId': id,
+        'type': type,
+        'durationMinutes': durationMinutes,
+        'distanceKm': distanceKm,
+        'intensity': intensity,
+        'activityDate': activityDate.toIso8601String(),
+        'notes': notes,
+        'caloriesBurned': caloriesBurned,
+      };
+
+  factory PhysicalActivity.fromJson(Map<String, dynamic> json) => PhysicalActivity(
+        id: json['localId'] as int?,
+        remoteId: (json['id'] ?? json['_id'])?.toString(),
+        userId: (json['userId'] ?? json['user'])?.toString(),
+        type: json['type'] as String,
+        durationMinutes: (json['durationMinutes'] as num).toInt(),
+        distanceKm: json['distanceKm'] != null
+            ? (json['distanceKm'] as num).toDouble()
+            : null,
+        intensity: json['intensity'] as String,
+        activityDate: DateTime.parse(json['activityDate'] as String),
+        notes: json['notes'] as String?,
+        caloriesBurned: (json['caloriesBurned'] as num?)?.toInt(),
+      );
+
   PhysicalActivity copyWith({
     int? id,
+    String? remoteId,
     String? userId,
     String? type,
     int? durationMinutes,
@@ -231,6 +263,7 @@ class PhysicalActivity {
   }) =>
       PhysicalActivity(
         id: id ?? this.id,
+        remoteId: remoteId ?? this.remoteId,
         userId: userId ?? this.userId,
         type: type ?? this.type,
         durationMinutes: durationMinutes ?? this.durationMinutes,

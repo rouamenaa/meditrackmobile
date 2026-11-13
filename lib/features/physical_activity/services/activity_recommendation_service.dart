@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../../auth/models/user.dart';
 import '../models/activity_recommendation.dart';
 import '../models/physical_activity.dart';
+import '../models/weather_data.dart';
 import 'activity_service.dart';
 
 /// Moteur de recommandations personnalisées d'activité physique pour MediTrack.
@@ -256,6 +257,96 @@ class ActivityRecommendationService {
     );
 
     return recommendations;
+  }
+
+  /// Génère une recommandation dédiée et contextualisée selon la météo en temps réel
+  ActivityRecommendation generateWeatherRecommendation({
+    required WeatherData weather,
+    User? user,
+  }) {
+    final medicalCondition = user?.conditionMedicale;
+    final hasCondition =
+        medicalCondition != null && medicalCondition.trim().isNotEmpty;
+    final isSenior = (user?.age ?? 0) >= 65;
+
+    final String sportType;
+    final String title;
+    final String description;
+    final String intensity;
+    final int duration;
+    final int calories;
+
+    if (weather.isStormy) {
+      sportType = 'Other';
+      title = 'Indoor Gentle Mobility & Stretch';
+      description =
+          'Severe weather alert outside. Protect yourself and exercise safely indoors with gentle mobility, stretching, and breathing exercises.';
+      intensity = 'Low';
+      duration = 20;
+      calories = 70;
+    } else if (weather.isRainy) {
+      sportType = 'Swimming';
+      title = 'Indoor Swimming & Joint Relief';
+      description =
+          'Rainy conditions outside (${weather.weatherDescription}). Enjoy a sheltered swimming session for low-impact cardio without slipping hazards.';
+      intensity = hasCondition ? 'Low' : 'Moderate';
+      duration = 35;
+      calories = 230;
+    } else if (weather.isHot) {
+      sportType = 'Swimming';
+      title = 'Cooling Pool Workout or Shaded Walk';
+      description =
+          'Warm weather (${weather.temperature.round()}°C). Stay hydrated, avoid midday sun, and choose an indoor pool or shaded early walk.';
+      intensity = hasCondition ? 'Low' : 'Moderate';
+      duration = 30;
+      calories = 190;
+    } else if (weather.isFreezing) {
+      sportType = 'Walking';
+      title = 'Brisk Cold-Weather Walk';
+      description =
+          'Cold temperature (${weather.temperature.round()}°C). Dress warmly in layers, spend 10 minutes warming up, and maintain a steady walking rhythm.';
+      intensity = 'Low';
+      duration = 25;
+      calories = 130;
+    } else if (weather.isWindy) {
+      sportType = 'Walking';
+      title = 'Sheltered Trail or Park Walk';
+      description =
+          'Windy day (${weather.windSpeed.round()} km/h). Road cycling is discouraged. Enjoy a walk along sheltered pathways or an indoor workout.';
+      intensity = 'Low';
+      duration = 30;
+      calories = 140;
+    } else {
+      // Conditions optimales plein air
+      sportType = 'Cycling';
+      title = 'Fresh Air Outdoor Ride or Run';
+      description =
+          'Optimal outdoor weather (${weather.temperature.round()}°C, ${weather.weatherDescription}). Ideal time to boost cardiovascular endurance in the fresh air!';
+      intensity = hasCondition ? 'Low' : 'Moderate';
+      duration = 40;
+      calories = 280;
+    }
+
+    final String? medicalAdvice = hasCondition
+        ? 'Medical note: Given your condition ($medicalCondition), please verify with your physician and keep effort comfortable.'
+        : (isSenior
+            ? 'Senior note: Warm up progressively and stay within your comfort zone.'
+            : null);
+
+    return ActivityRecommendation(
+      id: 'rec_weather_${weather.weatherCode}',
+      title: title,
+      activityType: sportType,
+      durationMinutes: duration,
+      intensity: intensity,
+      frequencyPerWeek: 3,
+      category: 'Weather-Adaptive Session',
+      reason: weather.weatherSportAdvice,
+      description: description,
+      estimatedCalories: calories,
+      medicalAdvice: medicalAdvice,
+      source: 'Open-Meteo Weather Advisor',
+    );
   }
 
   /// Récupération optionnelle de conseils complémentaires via une API externe

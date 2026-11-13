@@ -125,6 +125,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${_months[d.month - 1]} ${d.day}, ${d.year} (${u.age} yrs)';
   }
 
+  String _formatSexe(String? s) {
+    if (s == null || s.trim().isEmpty) return 'Not set';
+    final lower = s.trim().toLowerCase();
+    if (lower == 'homme' || lower == 'male' || lower == 'm') return 'Male';
+    if (lower == 'femme' || lower == 'female' || lower == 'f') return 'Female';
+    if (lower == 'autre' || lower == 'other') return 'Other';
+    return s;
+  }
+
   String _initials(User u) {
     final p = u.prenom.isNotEmpty ? u.prenom[0] : '';
     final n = u.nom.isNotEmpty ? u.nom[0] : '';
@@ -369,6 +378,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: 'Date of Birth',
           icon: Icons.calendar_today_outlined,
           value: _formatDate(u),
+        ),
+        _Field(
+          label: 'Sex',
+          icon: Icons.wc_outlined,
+          value: _formatSexe(u.sexe),
         ),
         const Text('Emergency Contact',
             style: TextStyle(

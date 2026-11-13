@@ -20,9 +20,12 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'meditrack.db');
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
+      },
+      onOpen: (db) async {
+        await _ensurePhysicalActivityColumns(db);
       },
       onCreate: (db, version) async {
         await _createUserCache(db);
@@ -38,6 +41,8 @@ class DatabaseHelper {
         await _ensureAppointmentPatientColumns(db);
         // v9 : lien vers les comptes médecins enregistrés dans le backend
         await _ensureAppointmentRoleColumns(db);
+        // v10 : colonne remote_id pour la synchronisation MongoDB des activités
+        await _ensurePhysicalActivityColumns(db);
       },
     );
   }
@@ -101,6 +106,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS physical_activities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        remote_id TEXT,
         user_id INTEGER,
         type TEXT NOT NULL,
         duration_minutes INTEGER NOT NULL,
@@ -111,6 +117,19 @@ class DatabaseHelper {
         calories_burned INTEGER
       )
     ''');
+    await _ensurePhysicalActivityColumns(db);
+  }
+
+  Future<void> _ensurePhysicalActivityColumns(Database db) async {
+    try {
+      final columns = await db.rawQuery('PRAGMA table_info(physical_activities)');
+      final names = columns.map((c) => c['name'] as String).toSet();
+      if (!names.contains('remote_id')) {
+        await db.execute(
+          'ALTER TABLE physical_activities ADD COLUMN remote_id TEXT',
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _createAppointmentsModule(Database db) async {
