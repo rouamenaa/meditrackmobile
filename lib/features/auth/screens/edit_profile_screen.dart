@@ -58,7 +58,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _rppsCtrl = TextEditingController(text: u.rppsAdeli ?? '');
     _etablissementCtrl = TextEditingController(text: u.etablissement ?? '');
     _horairesCtrl = TextEditingController(text: u.horairesConsultation ?? '');
-    _sexe = u.sexe;
+    
+    // Normalise le sexe pour être compatible avec les options Male / Female / Other
+    String? normalizedSexe;
+    if (u.sexe != null && u.sexe!.trim().isNotEmpty) {
+      final s = u.sexe!.trim().toLowerCase();
+      if (s == 'homme' || s == 'male' || s == 'm') {
+        normalizedSexe = 'Male';
+      } else if (s == 'femme' || s == 'female' || s == 'f') {
+        normalizedSexe = 'Female';
+      } else if (s == 'autre' || s == 'other') {
+        normalizedSexe = 'Other';
+      } else {
+        normalizedSexe = u.sexe;
+      }
+    }
+    _sexe = normalizedSexe;
+
     _groupeSanguin =
         (u.groupeSanguin != null && _groupes.contains(u.groupeSanguin))
             ? u.groupeSanguin
@@ -204,9 +220,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   initialValue: _sexe,
                   decoration: _decoration('Sex', Icons.wc_outlined),
                   items: const [
-                    DropdownMenuItem(value: 'Femme', child: Text('Female')),
-                    DropdownMenuItem(value: 'Homme', child: Text('Male')),
-                    DropdownMenuItem(value: 'Autre', child: Text('Other')),
+                    DropdownMenuItem(value: 'Male', child: Text('Male')),
+                    DropdownMenuItem(value: 'Female', child: Text('Female')),
+                    DropdownMenuItem(value: 'Other', child: Text('Other')),
                   ],
                   onChanged: (v) => setState(() => _sexe = v),
                 ),

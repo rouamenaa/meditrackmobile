@@ -211,9 +211,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration:
                   _decoration('Sex (optional)', Icons.wc_outlined),
                   items: const [
-                    DropdownMenuItem(value: 'Femme', child: Text('Female')),
-                    DropdownMenuItem(value: 'Homme', child: Text('Male')),
-                    DropdownMenuItem(value: 'Autre', child: Text('Other')),
+                    DropdownMenuItem(value: 'Male', child: Text('Male')),
+                    DropdownMenuItem(value: 'Female', child: Text('Female')),
+                    DropdownMenuItem(value: 'Other', child: Text('Other')),
                   ],
                   onChanged: (v) => setState(() => _sexe = v),
                 ),

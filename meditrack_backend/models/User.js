@@ -16,7 +16,8 @@ const userSchema = new mongoose.Schema(
     reset_expires: Date,
 
     telephone: String,
-    date_naissance: String, 
+    date_naissance: String,
+    sexe: String, 
 
     notif_medicaments: { type: Boolean, default: true },
     notif_rdv: { type: Boolean, default: true },
